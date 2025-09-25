@@ -1,0 +1,11 @@
+----------------------------------------
+[57] Line Out (OUT (UA-25EX))
+   Max Input Channels : 0
+   Max Output Channels: 2
+   Default SampleRate : 48000
+----------------------------------------
+[58] IN (IN (UA-25EX))
+   Max Input Channels : 2
+   Max Output Channels: 0
+   Default SampleRate : 48000
+----------------------------------------
