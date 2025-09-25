@@ -16,7 +16,7 @@
 
 ## Member:
 - Khashayar
-- Joengjoon
+- Jeongjoo
 ## Step 1: Import data
 
 - [ ] import any  audio test data (only for testing the script/processing)
