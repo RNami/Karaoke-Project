@@ -1,10 +1,13 @@
 import pyaudio
-import sys
+import wave
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
+OUTPUT_FILENAME = "five_seconds.wav"
+
+RECORD_SECONDS = 5
 
 p = pyaudio.PyAudio()
 
@@ -14,18 +17,24 @@ stream = p.open(format=FORMAT,
                 input=True,
                 frames_per_buffer=CHUNK)
 
-print("Recording...")
+num_chunks = int(RATE / CHUNK * RECORD_SECONDS)
+frames = []
 
-try:
-    while True:
-        data = stream.read(CHUNK)
-        print(f"Received chunk of {len(data)} bytes")
-        # Process 'data' here, for example, send to a speech recognition API
-except KeyboardInterrupt:
-    pass
+print(f"Recording for {RECORD_SECONDS} seconds...")
+for _ in range(num_chunks):
+    data = stream.read(CHUNK)
+    frames.append(data)
+print(f"Received {RECORD_SECONDS} seconds of audio.")
 
-print("Finished recording.")
+print(f"Saving to {OUTPUT_FILENAME}...")
+wf = wave.open(OUTPUT_FILENAME, 'wb')
+wf.setnchannels(CHANNELS)
+wf.setsampwidth(p.get_sample_size(FORMAT))
+wf.setframerate(RATE)
+wf.writeframes(b''.join(frames))
+wf.close()
 
 stream.stop_stream()
 stream.close()
 p.terminate()
+print("Done.")
