@@ -11,6 +11,10 @@ Having a python script providing an Input - Array - Output pipeline in real time
 - [ ] playback the data again on the output device
 - [ ] test it with the audio interface
 
+### References
+https://stackoverflow.com/questions/46386011/real-time-audio-signal-processing-using-python
+
+Real-time audio processing code in Python
 
 # Block B: Room Simulation Processing
 
