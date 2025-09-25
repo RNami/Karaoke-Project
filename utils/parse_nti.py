@@ -22,7 +22,7 @@ def parse_nti_fft(file_path:str)->np.ndarray:
 
     for live_value in re.finditer(r"(\d+\.\d+)+", lines[-4]):
         live_values.append(live_value.group())
-        
+
     measurement = np.array((f_bands, max_values, live_values), dtype=float)
     return measurement
 
@@ -38,8 +38,9 @@ def parse_nti_RT60(file_path:str)->np.ndarray:
     with open(file_path, 'r') as f:
         file = f.read()
     for match in  re.finditer(r'# RT60 Average Results\n\n(.*\n)+#\s', file):
-        file = match.group()
-    for match in re.finditer(r'(\d+).*(\d\.\d+)', file):
+        average_results = match.group()
+
+    for match in re.finditer(r'(\d+).*(\d\.\d+)', average_results):
         bands.append(float(match.group(1)))
         rt_60.append(match.group(2))
     measurement = np.array((bands,rt_60), dtype=float)
