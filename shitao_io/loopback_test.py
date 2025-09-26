@@ -1,49 +1,49 @@
 """
-Simplified interactive PyAudio device chooser:
-- Only shows devices from Windows WASAPI host API.
-- Only lists: default microphone (input), default speaker (output), loopback (input).
-- Lets user pick input/output easily.
+Interactive mic→speaker monitor for Windows:
+- Lists WASAPI devices.
+- Lets user pick *one* INPUT (mic) and *one* OUTPUT (speaker).
+- Opens two independent PyAudio streams (input-only & output-only).
+- If sample rates differ, resamples with scipy.signal.resample_poly.
 """
+
 import os
 import time
-
 import numpy as np
 import pyaudio
+from scipy.signal import resample_poly   # pip install scipy
 
 FORMAT = pyaudio.paInt16
-COMMON_SAMPLE_RATES = [48000, 44100]
-BUFFER_SIZES = [512, 1024]
-PREFERRED_CHANNELS = [1, 2]
+BUFFER_SIZE = 1024
 
 
 def get_wasapi_devices(pa):
     """Return only WASAPI devices (mic, speaker, loopback)."""
-    devices = []
+    devs = []
     for idx in range(pa.get_device_count()):
         info = pa.get_device_info_by_index(idx)
-        hostapi_name = pa.get_host_api_info_by_index(info["hostApi"])["name"]
-        if "WASAPI" not in hostapi_name and os.name == 'nt':
+        hostapi = pa.get_host_api_info_by_index(info["hostApi"])["name"]
+        if "WASAPI" not in hostapi and os.name == "nt":
             continue
-        devices.append({
+        devs.append({
             "index": idx,
             "name": info["name"],
             "max_in": int(info["maxInputChannels"]),
             "max_out": int(info["maxOutputChannels"]),
             "default_sr": int(info["defaultSampleRate"]),
         })
-    return devices
+    return devs
 
 
 def print_devices(devs):
-    print("=== Simplified Device List (WASAPI only) ===")
+    print("=== WASAPI Devices ===")
     for d in devs:
-        kind = []
+        kinds = []
         if d["max_in"] > 0:
-            kind.append("INPUT")
+            kinds.append("INPUT")
         if d["max_out"] > 0:
-            kind.append("OUTPUT")
-        print(f"[{d['index']}] {d['name']} | {','.join(kind)} | defSR={d['default_sr']}")
-    print("===========================================")
+            kinds.append("OUTPUT")
+        print(f"[{d['index']}] {d['name']} | {','.join(kinds)} | defSR={d['default_sr']}")
+    print("=======================")
 
 
 def prompt_device(devs, want_input=True):
@@ -56,39 +56,16 @@ def prompt_device(devs, want_input=True):
             print("Please enter a number.")
             continue
         dev = next((d for d in devs if d["index"] == idx), None)
-        if dev is None:
-            print("Not found. Try again.")
+        if not dev:
+            print("Not found.")
             continue
         if want_input and dev["max_in"] < 1:
-            print("This is not an input device.")
+            print("Not an input device.")
             continue
         if not want_input and dev["max_out"] < 1:
-            print("This is not an output device.")
+            print("Not an output device.")
             continue
         return dev
-
-
-def try_open(pa, inp, out, callback):
-    """Try open stream with safe defaults (48k/44.1k mono, 512/1024 buffer)."""
-    for rate in COMMON_SAMPLE_RATES:
-        for ch in PREFERRED_CHANNELS:
-            for buf in BUFFER_SIZES:
-                try:
-                    stream = pa.open(
-                        format=FORMAT,
-                        channels=ch,
-                        rate=rate,
-                        input=True,
-                        output=True,
-                        frames_per_buffer=buf,
-                        input_device_index=inp["index"],
-                        output_device_index=out["index"],
-                        stream_callback=callback,
-                    )
-                    return stream, rate, ch, buf
-                except Exception:
-                    continue
-    raise RuntimeError("Could not open any valid stream.")
 
 
 def main():
@@ -98,34 +75,60 @@ def main():
         if not devs:
             print("No WASAPI devices found.")
             return
-        print_devices(devs)
 
+        print_devices(devs)
         inp = prompt_device(devs, want_input=True)
         out = prompt_device(devs, want_input=False)
 
         print(f"\nUsing INPUT : [{inp['index']}] {inp['name']}")
         print(f"Using OUTPUT: [{out['index']}] {out['name']}\n")
 
-        def callback(in_data, frame_count, time_info, status):
-            x = np.frombuffer(in_data, dtype=np.int16)
-            y = x  # passthrough, insert DSP here
-            return (y.tobytes(), pyaudio.paContinue)
+        in_rate = int(inp["default_sr"])
+        out_rate = int(out["default_sr"])
+        in_channels = min(inp["max_in"], 2)
+        out_channels = min(out["max_out"], 2)
 
-        stream, rate, ch, buf = try_open(pa, inp, out, callback)
-        print(f"✅ Stream opened: rate={rate}, ch={ch}, buffer={buf}")
-        print("Streaming... Ctrl+C to stop.")
+        print(f"Opening mic stream @ {in_rate} Hz, {in_channels} ch")
+        in_stream = pa.open(format=FORMAT,
+                            channels=in_channels,
+                            rate=in_rate,
+                            input=True,
+                            frames_per_buffer=BUFFER_SIZE,
+                            input_device_index=inp["index"])
 
-        stream.start_stream()
-        while stream.is_active():
-            print('buf:', buf)
-            time.sleep(0.1)
+        print(f"Opening speaker stream @ {out_rate} Hz, {out_channels} ch")
+        out_stream = pa.open(format=FORMAT,
+                             channels=out_channels,
+                             rate=out_rate,
+                             output=True,
+                             frames_per_buffer=BUFFER_SIZE,
+                             output_device_index=out["index"])
+
+        print("✅ Streams opened. Ctrl+C to stop.")
+        ratio = out_rate / in_rate
+
+        while True:
+            data = in_stream.read(BUFFER_SIZE, exception_on_overflow=False)
+            x = np.frombuffer(data, dtype=np.int16)
+
+            # If mic and speaker have different rates, resample
+            if in_rate != out_rate:
+                x = resample_poly(x, out_rate, in_rate)
+
+            # Simple channel handling: duplicate to match output channels if needed
+            if out_channels > in_channels:
+                x = np.repeat(x.reshape(-1, in_channels), out_channels, axis=1)
+            elif out_channels == 1 and x.ndim > 1:
+                x = x.mean(axis=1)
+
+            out_stream.write(x.astype(np.int16).tobytes())
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
     finally:
         try:
-            stream.stop_stream()
-            stream.close()
+            in_stream.stop_stream(); in_stream.close()
+            out_stream.stop_stream(); out_stream.close()
         except Exception:
             pass
         pa.terminate()
