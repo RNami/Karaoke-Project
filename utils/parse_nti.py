@@ -4,7 +4,8 @@ import numpy as np
 
 def parse_nti_fft(file_path:str)->np.ndarray:
     '''
-    
+    parse the NTI FFT measurement to a np.array
+    arg: path to the measurement file
     Return: measurement:np.ndarray: with shape (3,n)
     [bands,max,live], n = number of frequency bands
 
@@ -28,7 +29,8 @@ def parse_nti_fft(file_path:str)->np.ndarray:
 
 def parse_nti_RT60(file_path:str)->np.ndarray:
     '''
-
+    parse the NTI RT60 measurement to a np.array
+    arg: path to the measurement file
     Return: measurement:np.ndarray: with shape (2,n)
     [bands,rt60], n = number of frequency bands
 
