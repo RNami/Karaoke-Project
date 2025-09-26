@@ -3,6 +3,7 @@
 import pyaudio
 import numpy as np
 from scipy.signal import lfilter, resample_poly
+import threading
 
 FORMAT = pyaudio.paInt16
 BUFFER_SIZE = 1024   # fixed internal buffer, GUI can still show value if desired
@@ -36,8 +37,8 @@ def robot_voice_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
 
 
 def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
-    delay_ms = 100
-    decay = 0.4
+    delay_ms = 300
+    decay = 0.1
     delay_samples = int(rate * delay_ms / 1000)
     b = np.zeros(delay_samples + 1)
     b[0] = 1
@@ -64,6 +65,7 @@ class AudioEngine:
         self.running = False
         self.effect_name = "None"
         self.current_level = 0.0  # mic RMS level 0–100
+        self.lock = threading.Lock()
 
     def start_stream(self, inp_idx, out_idx, effect_name="None"):
         # Query device defaults
@@ -101,17 +103,19 @@ class AudioEngine:
     # -------------------------------------------------------------------------
     def _io_loop(self):
         """Read from mic, apply effect, resample, write to speakers."""
-        while self.running:
-            try:
-                data = self.in_stream.read(BUFFER_SIZE, exception_on_overflow=False)
-            except Exception:
-                break
+        while True:
+            with self.lock:
+                if not self.running or self.in_stream is None or self.out_stream is None:
+                    break
+                try:
+                    data = self.in_stream.read(BUFFER_SIZE, exception_on_overflow=False)
+                except Exception:
+                    break
 
             x = np.frombuffer(data, dtype=np.int16)
 
-            # Level meter (RMS 0–100)
-            rms = np.sqrt(np.mean(x.astype(np.float32)**2))
-            self.current_level = min(100.0, (rms / 32768.0) * 100.0)
+            # RMS level
+            self.current_level = min(100.0, (np.sqrt(np.mean(x.astype(np.float32)**2)) / 32768.0) * 100.0)
 
             # Effect
             if self.effect_name == "Robot Voice":
@@ -129,20 +133,48 @@ class AudioEngine:
             elif self.out_channels == 1 and x.ndim > 1:
                 x = x.mean(axis=1)
 
-            self.out_stream.write(x.astype(np.int16).tobytes())
+            # write safely
+            with self.lock:
+                if self.running and self.out_stream is not None:
+                    try:
+                        self.out_stream.write(x.astype(np.int16).tobytes())
+                    except OSError:
+                        break
 
     # -------------------------------------------------------------------------
     def stop_stream(self):
-        self.running = False
-        if self.in_stream:
-            self.in_stream.stop_stream()
-            self.in_stream.close()
-            self.in_stream = None
-        if self.out_stream:
-            self.out_stream.stop_stream()
-            self.out_stream.close()
-            self.out_stream = None
+        with self.lock:
+            if not self.running:
+                return 
+            self.running = False
+
+            if self.in_stream:
+                try:
+                    self.in_stream.stop_stream()
+                    self.in_stream.close()
+                except Exception:
+                    pass
+                self.in_stream = None
+
+            if self.out_stream:
+                try:
+                    self.out_stream.stop_stream()
+                    self.out_stream.close()
+                except Exception:
+                    pass
+                self.out_stream = None
+
+        # wait for worker thread to finish outside the lock
+        if hasattr(self, "thread") and self.thread.is_alive():
+            self.thread.join(timeout=0.5)
+
+    # -------------------------------------------------------------------------
 
     def terminate(self):
         self.stop_stream()
         self.pa.terminate()
+
+
+    @property
+    def stream(self):
+        return self.in_stream

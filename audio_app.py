@@ -76,14 +76,27 @@ class AudioApp:
             messagebox.showerror("Error", f"Could not start audio:\n{e}")
 
     def stop_audio(self):
-        self.engine.stop_stream()
-        self.start_btn.config(state="normal")
-        self.stop_btn.config(state="disabled")
+        try:
+            self.engine.stop_stream()  # idempotent
+            self.start_btn.config(state="normal")
+            self.stop_btn.config(state="disabled")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not stop audio:\n{e}")
+
 
     def monitor_stream(self):
         while self.engine.running:
-            time.sleep(0.1)
-        self.root.after(0, self.stop_audio)
+            in_stream = self.engine.in_stream  # local copy
+            if in_stream is None:
+                break
+            if not in_stream.is_active():
+                break
+            time.sleep(0.05)
+        self.root.after(0, lambda: (
+            self.start_btn.config(state="normal"),
+            self.stop_btn.config(state="disabled")
+        ))
+
 
     def update_level_bar(self):
         self.level.set(self.engine.current_level)
@@ -91,9 +104,10 @@ class AudioApp:
             self.root.after(50, self.update_level_bar)
 
     def on_close(self):
+        self.engine.running = False
+        self.engine.stop_stream()
         self.engine.terminate()
         self.root.destroy()
-
 
 if __name__ == "__main__":
     root = tk.Tk()
