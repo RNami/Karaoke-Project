@@ -1,4 +1,6 @@
 """
+loop_back_test.py
+
 Interactive mic→speaker monitor for Windows:
 - Lists WASAPI devices.
 - Lets user pick *one* INPUT (mic) and *one* OUTPUT (speaker).
@@ -10,10 +12,32 @@ import os
 import time
 import numpy as np
 import pyaudio
-from scipy.signal import resample_poly   # pip install scipy
+from scipy.signal import resample_poly, lfilter
 
 FORMAT = pyaudio.paInt16
 BUFFER_SIZE = 1024
+
+# === Audio effects ============================================================
+def robot_voice_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
+    freq = 80  # Hz
+    t = np.arange(len(buffer)) / rate
+    square_wave = np.sign(np.sin(2 * np.pi * freq * t))
+    effected = buffer * square_wave
+    return effected.astype(np.int16)
+
+
+def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
+    delay_ms = 100
+    decay = 0.4
+    delay_samples = int(rate * delay_ms / 1000)
+    b = np.zeros(delay_samples + 1)
+    b[0] = 1
+    a = np.zeros(delay_samples + 1)
+    a[0] = 1
+    a[-1] = -decay
+    effected = lfilter(b, a, buffer)
+    effected = np.clip(effected, -32768, 32767)
+    return effected.astype(np.int16)
 
 
 def get_wasapi_devices(pa):
@@ -104,7 +128,7 @@ def main():
                              frames_per_buffer=BUFFER_SIZE,
                              output_device_index=out["index"])
 
-        print("✅ Streams opened. Ctrl+C to stop.")
+        print("Streams opened. Ctrl+C to stop.")
         ratio = out_rate / in_rate
 
         while True:
@@ -121,7 +145,9 @@ def main():
             elif out_channels == 1 and x.ndim > 1:
                 x = x.mean(axis=1)
 
-            out_stream.write(x.astype(np.int16).tobytes())
+            y = concert_hall_effect(x, out_rate)
+            # y = x
+            out_stream.write(y.astype(np.int16).tobytes())
 
     except KeyboardInterrupt:
         print("\nStopped by user.")
