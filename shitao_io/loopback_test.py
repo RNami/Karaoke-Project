@@ -4,10 +4,11 @@ Simplified interactive PyAudio device chooser:
 - Only lists: default microphone (input), default speaker (output), loopback (input).
 - Lets user pick input/output easily.
 """
-
-import pyaudio
-import numpy as np
+import os
 import time
+
+import numpy as np
+import pyaudio
 
 FORMAT = pyaudio.paInt16
 COMMON_SAMPLE_RATES = [48000, 44100]
@@ -21,7 +22,7 @@ def get_wasapi_devices(pa):
     for idx in range(pa.get_device_count()):
         info = pa.get_device_info_by_index(idx)
         hostapi_name = pa.get_host_api_info_by_index(info["hostApi"])["name"]
-        if "WASAPI" not in hostapi_name:
+        if "WASAPI" not in hostapi_name and os.name == 'nt':
             continue
         devices.append({
             "index": idx,
