@@ -185,17 +185,17 @@ def run_realtime_convolution(
     # We know input is mono, output channels == IR channels
     out_channels = ir.shape[1] if ir.ndim == 2 else 1
 
-    # Open stream now; it returns actual fs to use (if not forced)
-    p, stream, fs = open_duplex_stream(
-        convolver_cb=None,  # placeholder; we attach later
-        in_dev=in_device_index,
-        out_dev=out_device_index,
-        fs=sample_rate,
-        out_channels=out_channels
-    )
-    # Now fs is known; resample IR if needed and fix channel count
-    ir = resample_if_needed(ir, fs_ir, fs)
-    ir = match_ir_channels_to_output(ir, out_channels)
+    # # Open stream now; it returns actual fs to use (if not forced)
+    # p, stream, fs = open_duplex_stream(
+    #     convolver_cb=None,  # placeholder; we attach later
+    #     in_dev=in_device_index,
+    #     out_dev=out_device_index,
+    #     fs=sample_rate,
+    #     out_channels=out_channels
+    # )
+    # # Now fs is known; resample IR if needed and fix channel count
+    ir = resample_if_needed(ir, fs_ir, 48000)
+    # ir = match_ir_channels_to_output(ir, out_channels)
 
     # Build DSP
     convolver = FDLConvolver(ir, block=block)
@@ -211,16 +211,11 @@ def run_realtime_convolution(
             y = wet * wet_block
         return y
 
-    # Swap in the real callback (hack: stop stream and reopen with correct callback)
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-
     p2, stream2, fs2 = open_duplex_stream(
         convolver_cb=dsp_callback,
         in_dev=in_device_index,
         out_dev=out_device_index,
-        fs=fs,
+        fs=48000,
         out_channels=out_channels
     )
 
