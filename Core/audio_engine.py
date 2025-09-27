@@ -11,7 +11,7 @@ import soundfile as sf
 from numpy.fft import rfft, irfft
 
 FORMAT = pyaudio.paInt16
-BUFFER_SIZE = 1024   # fixed internal buffer, GUI can still show value if desired
+BUFFER_SIZE = 256   # fixed internal buffer, GUI can still show value if desired
 
 
 def get_wasapi_devices(pa):
