@@ -1,19 +1,17 @@
 # audio_engine.py
-import os
-import threading
 import math
+import threading
 
-import pyaudio
 import numpy as np
+import pyaudio
 from scipy.signal import resample_poly
-from scipy.io import loadmat
-import soundfile as sf
 
-from Filters.filters import FDLConvolver, AudioEffects
+from Filters.filters import FDLConvolver, concert_hall_effect, robot_voice_effect
 from Filters.ir_utils import load_ir_any, resample_if_needed
 
 FORMAT = pyaudio.paInt16
-BUFFER_SIZE = 256   # fixed internal buffer, GUI can still show value if desired
+BUFFER_SIZE = 256  # fixed internal buffer, GUI can still show value if desired
+
 
 # === Engine ===================================================================
 class AudioEngine:
@@ -23,6 +21,7 @@ class AudioEngine:
        speaker → write at speaker rate
     Handles resampling + effect processing in Python.
     """
+
     def __init__(self):
         self.pa = pyaudio.PyAudio()
         self.in_stream = None
@@ -124,7 +123,8 @@ class AudioEngine:
 
             # RMS level (mono)
             x_mono_for_level = x.mean(axis=1) if x.ndim > 1 else x
-            self.current_level = min(100.0, (np.sqrt(np.mean(x_mono_for_level.astype(np.float32) ** 2)) / 32768.0) * 100.0)
+            self.current_level = min(100.0,
+                                     (np.sqrt(np.mean(x_mono_for_level.astype(np.float32) ** 2)) / 32768.0) * 100.0)
 
             # Apply effect
             if self.effect_name == "Robot Voice":
@@ -133,14 +133,14 @@ class AudioEngine:
                     x_proc = x.mean(axis=1).astype(np.int16)
                 else:
                     x_proc = x
-                x = AudioEffects.robot_voice_effect(x_proc, self.in_rate)
+                x = robot_voice_effect(x_proc, self.in_rate)
 
             elif self.effect_name == "Concert Hall":
                 if x.ndim > 1:
                     x_proc = x.mean(axis=1).astype(np.int16)
                 else:
                     x_proc = x
-                x = AudioEffects.concert_hall_effect(x_proc, self.in_rate)
+                x = concert_hall_effect(x_proc, self.in_rate)
 
             elif self.effect_name == "Convolver" and self.convolver is not None:
                 # Convert input to float32 in [-1,1] and mono as required by convolver
@@ -171,7 +171,8 @@ class AudioEngine:
 
                 # match to output channels
                 if y_mixed.shape[1] < self.out_channels:
-                    y_mixed = np.repeat(y_mixed, math.ceil(self.out_channels / y_mixed.shape[1]), axis=1)[:, :self.out_channels]
+                    y_mixed = np.repeat(y_mixed, math.ceil(self.out_channels / y_mixed.shape[1]), axis=1)[:,
+                              :self.out_channels]
                 elif y_mixed.shape[1] > self.out_channels:
                     y_mixed = y_mixed[:, :self.out_channels]
 
