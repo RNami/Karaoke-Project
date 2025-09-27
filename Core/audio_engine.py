@@ -5,11 +5,11 @@ import math
 
 import pyaudio
 import numpy as np
-from scipy.signal import lfilter, resample_poly
+from scipy.signal import resample_poly
 from scipy.io import loadmat
 import soundfile as sf
 
-from Filters.filters import FDLConvolver
+from Filters.filters import FDLConvolver, AudioEffects
 
 FORMAT = pyaudio.paInt16
 BUFFER_SIZE = 256   # fixed internal buffer, GUI can still show value if desired
@@ -31,30 +31,6 @@ def get_wasapi_devices(pa):
             "default_sr": int(info["defaultSampleRate"]),
         })
     return devices
-
-
-# === Audio effects ============================================================
-def robot_voice_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
-    freq = 80  # Hz
-    t = np.arange(len(buffer)) / rate
-    square_wave = np.sign(np.sin(2 * np.pi * freq * t))
-    effected = buffer * square_wave
-    return effected.astype(np.int16)
-
-
-def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
-    delay_ms = 300
-    decay = 0.1
-    delay_samples = int(rate * delay_ms / 1000)
-    b = np.zeros(delay_samples + 1)
-    b[0] = 1
-    a = np.zeros(delay_samples + 1)
-    a[0] = 1
-    a[-1] = -decay
-    effected = lfilter(b, a, buffer)
-    effected = np.clip(effected, -32768, 32767)
-    return effected.astype(np.int16)
-
 
 # === Minimal IR loader & FDL convolver =======================================
 COMMON_IR_KEYS = ["h_air", "ir", "h", "rir", "impulse_response", "IR", "H"]
@@ -299,14 +275,14 @@ class AudioEngine:
                     x_proc = x.mean(axis=1).astype(np.int16)
                 else:
                     x_proc = x
-                x = robot_voice_effect(x_proc, self.in_rate)
+                x = AudioEffects.robot_voice_effect(x_proc, self.in_rate)
 
             elif self.effect_name == "Concert Hall":
                 if x.ndim > 1:
                     x_proc = x.mean(axis=1).astype(np.int16)
                 else:
                     x_proc = x
-                x = concert_hall_effect(x_proc, self.in_rate)
+                x = AudioEffects.concert_hall_effect(x_proc, self.in_rate)
 
             elif self.effect_name == "Convolver" and self.convolver is not None:
                 # Convert input to float32 in [-1,1] and mono as required by convolver
