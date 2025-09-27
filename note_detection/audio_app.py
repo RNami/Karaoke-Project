@@ -6,8 +6,7 @@ import threading
 import time
 import os
 
-from Core.audio_engine import AudioEngine
-from Core.io_utils import get_wasapi_devices
+from note_detection.audio_engine import AudioEngine, get_wasapi_devices
 
 
 class AudioApp:
@@ -58,11 +57,21 @@ class AudioApp:
                                          maximum=100, length=300)
         self.level_bar.grid(row=4, column=1, padx=5, pady=5)
 
+        #current pitch# inside your GUI setup
+        self.note = tk.StringVar()
+
+        self.note_label = ttk.Label(root, text="Current Pitch:")
+        self.note_label.grid(row=5, column=0, sticky="e")
+
+        self.note_val = ttk.Label(root, textvariable=self.note)
+        self.note_val.grid(row=5, column=1, sticky="w")
+
+
         # Start/Stop
         self.start_btn = ttk.Button(root, text="Start", command=self.start_audio)
-        self.start_btn.grid(row=5, column=0, padx=5, pady=10)
+        self.start_btn.grid(row=6, column=0, padx=5, pady=10)
         self.stop_btn = ttk.Button(root, text="Stop", command=self.stop_audio, state="disabled")
-        self.stop_btn.grid(row=5, column=1, padx=5, pady=10)
+        self.stop_btn.grid(row=6, column=1, padx=5, pady=10)
 
     # -------------------------------------------------------------------------
     def choose_ir(self):
@@ -134,6 +143,7 @@ class AudioApp:
 
             # GUI updates
             self.update_level_bar()
+            self.update_pitch_label()
             threading.Thread(target=self.monitor_stream, daemon=True).start()
         except Exception as e:
             messagebox.showerror("Error", f"Could not start audio:\n{e}")
@@ -163,6 +173,14 @@ class AudioApp:
         self.level.set(self.engine.current_level)
         if self.engine.running:
             self.root.after(50, self.update_level_bar)
+
+        
+    def update_pitch_label(self):
+        self.note.set(self.engine.current_note)
+        if self.engine.running:
+            self.root.after(50, self.update_pitch_label)
+
+
 
     def on_close(self):
         self.engine.running = False
