@@ -65,24 +65,30 @@ class AudioApp:
 
     # -------------------------------------------------------------------------
     def choose_ir(self):
-        path = filedialog.askopenfilename(title="Select IR file", filetypes=[("MAT/WAV files", "*.mat;*.wav;*.flac;*.aiff;*.aif"), ("All files", "*.*")])
+        path = filedialog.askopenfilename(
+            title="Select IR file",
+            filetypes=[
+                ("Impulse Responses", ("*.mat", "*.wav", "*.flac", "*.aiff", "*.aif")),
+                ("All files", "*")
+            ]
+        )
         if not path:
             return
+        # store full path for engine, show only filename in label
+        self.engine.ir_path = path
         self.ir_path_var.set(os.path.basename(path))
-        # attempt to load IR into engine now if a device has already been selected (need sample rate)
-        if hasattr(self.engine, "in_rate") and self.engine.in_rate:
+
+        # if sample rate is already known, load immediately
+        if getattr(self.engine, "in_rate", None):
             try:
                 self.engine.load_ir(path, target_fs=self.engine.in_rate)
-                self.engine.ir_path = path
-                self.ir_path_var.set(path)
-                messagebox.showinfo("IR loaded", f"Loaded IR and resampled to {self.engine.in_rate} Hz.")
+                messagebox.showinfo(
+                    "IR loaded", f"Loaded IR and resampled to {self.engine.in_rate} Hz."
+                )
             except Exception as e:
                 messagebox.showerror("IR load error", f"Could not load IR:\n{e}")
                 self.engine.convolver = None
-        else:
-            # store path to load later when starting stream (we don't know in_rate yet)
-            self.engine.ir_path = path
-            self.ir_path_var.set(path)
+
 
     def on_effect_changed(self, event=None):
         eff = self.effect_var.get()
