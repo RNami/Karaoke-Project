@@ -25,14 +25,12 @@ def record_to_file(input_device_index):
                                        input=True, 
                                        channels=1, 
                                        input_device_index=input_device_index)
-    print(audio_port_api. get_default_input_device_info())
+    print(audio_port_api. get_device_info_by_index(input_device_index))
 
     with wave.open('measured_room_impulse.wav', 'wb') as writing_object:
         writing_object.setframerate(fs)
         writing_object.setnchannels(1)
-        writing_object.setsampwidth(audio_port_api.get_sample_size(BIT_FORMAT))
-       
-       
+        writing_object.setsampwidth(audio_port_api.get_sample_size(BIT_FORMAT))       
         # for each chunk with defined until we wrote all samples for the defined recording time 
         for _ in range (fs*RECORD_LENGTH // CHUNK):
             writing_object.writeframes(audio_stream.read(CHUNK))
@@ -48,7 +46,7 @@ def measure_rir(input_device_index):
     
     recording_thread.start()
     print('RECORD IS RUNNING')
-    time.sleep(5)
+    time.sleep(5)   # wait 5 seconds before playback
 
     print('Play back')
     play_back_thread.start()
