@@ -99,9 +99,9 @@ def resample_if_needed(x: np.ndarray, fs_in: int, fs_out: int) -> np.ndarray:
         return x
     g = math.gcd(fs_out, fs_in)
     up, down = fs_out // g, fs_in // g
-    chans = [resample_poly(x[:, c], up, down).astype(np.float32) for c in range(x.shape[1])]
-    m = min(len(ch) for ch in chans)
-    return np.stack([ch[:m] for ch in chans], axis=1)
+    channels = [resample_poly(x[:, c], up, down).astype(np.float32) for c in range(x.shape[1])]
+    minimum_length_of_channels = min(len(channel) for channel in channels)
+    return np.stack([ch[:minimum_length_of_channels] for ch in channels], axis=1)
 
 
 def match_ir_channels_to_output(ir: np.ndarray, out_channels: int) -> np.ndarray:
