@@ -1,7 +1,7 @@
 # io.py
 import pyaudio
 
-BLOCK = 1024  # window size in samples
+BLOCK = 256  # window size in samples
 
 def list_devices(p: pyaudio.PyAudio):
     inputs, outputs = [], []
