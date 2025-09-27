@@ -31,21 +31,29 @@ def _get_struct_field(struct_obj, name: str):
     return None
 
 
-def _pick_ir_array(d: dict) -> np.ndarray:
-    for k in COMMON_IR_KEYS:
-        if k in d and isinstance(d[k], np.ndarray):
-            return np.atleast_2d(d[k]).astype(np.float32)
+def _pick_ir_array(mat_file_dict: dict) -> np.ndarray:
+
+    # search with common key names in the dictionary
+    for common_key in COMMON_IR_KEYS:
+        if common_key in mat_file_dict and isinstance(mat_file_dict[common_key], np.ndarray):
+            return np.atleast_2d(mat_file_dict[common_key]).astype(np.float32)
+
+    value = pick_ir_fallback(mat_file_dict)
+    return np.atleast_2d(value).astype(np.float32)
+
+
+def pick_ir_fallback(mat_file_dict):
     # fallback: largest numeric array
-    cands = []
-    for k, v in d.items():
-        if k.startswith("__"):
+    candidates = []
+    for key, value in mat_file_dict.items():
+        if key.startswith("__"):
             continue
-        if isinstance(v, np.ndarray) and v.ndim in (1, 2) and np.issubdtype(v.dtype, np.number):
-            cands.append((k, v))
-    if not cands:
+        if isinstance(value, np.ndarray) and value.ndim in (1, 2) and np.issubdtype(value.dtype, np.number):
+            candidates.append((key, value))
+    if not candidates:
         raise RuntimeError("No numeric IR array found in .mat file.")
-    _, v = max(cands, key=lambda kv: kv[1].size)
-    return np.atleast_2d(v).astype(np.float32)
+    _, value = max(candidates, key=lambda kv: kv[1].size)
+    return value
 
 
 def _find_fs_in_info_struct(d: dict):
@@ -64,31 +72,34 @@ def _find_fs_in_info_struct(d: dict):
 
 def load_ir_any(ir_path: str):
     """Load .mat or .wav IR. Returns (ir_array (M, C), fs)."""
-    p = os.path.abspath(ir_path)
-    if not os.path.exists(p):
+
+    absolute_ir_path = os.path.abspath(ir_path)
+
+    if not os.path.exists(absolute_ir_path):
         raise FileNotFoundError(ir_path)
-    base, ext = os.path.splitext(p)
-    ext = ext.lower()
-    if ext == ".mat":
-        d = loadmat(p, squeeze_me=True)
-        ir = _pick_ir_array(d)
+
+    ir_path_base, ir_path_ext = os.path.splitext(absolute_ir_path)
+    ir_path_ext = ir_path_ext.lower()
+    if ir_path_ext == ".mat":
+        mat_file = loadmat(absolute_ir_path, squeeze_me=True)
+        ir = _pick_ir_array(mat_file)
         # ensure shape (M, C)
         if ir.ndim == 1:
             ir = ir[:, None]
         if ir.ndim == 2 and ir.shape[0] < 8 and ir.shape[1] > 8:
             ir = ir.T
-        fs = _find_fs_in_info_struct(d)
+        fs = _find_fs_in_info_struct(mat_file)
         if fs is None:
             for cand in ["fs", "Fs", "FS", "sampling_rate", "sr", "sample_rate", "samplingRate"]:
-                if cand in d:
-                    fs = _extract_scalar(d[cand])
+                if cand in mat_file:
+                    fs = _extract_scalar(mat_file[cand])
                     if fs:
                         break
         if fs is None:
             raise RuntimeError("IR sample rate not found in .mat")
         return ir.astype(np.float32), int(round(fs))
-    elif ext in (".wav", ".flac", ".aiff", ".aif"):
-        ir, fs = sf.read(p, always_2d=True)
+    elif ir_path_ext in (".wav", ".flac", ".aiff", ".aif"):
+        ir, fs = sf.read(absolute_ir_path, always_2d=True)
         return ir.astype(np.float32), int(round(fs))
     else:
         raise RuntimeError(f"Unsupported IR path: {ir_path}")
