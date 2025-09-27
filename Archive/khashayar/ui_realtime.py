@@ -15,7 +15,7 @@ from realtime_conv import run_realtime_convolution, load_ir_any
 from in_out import BLOCK  # default block size
 
 # ---------- Config ----------
-DEFAULT_IR_DIR = r"E:\Uni Lessones\FAU\Semester 2\Summer School\karaoke Project\IR Database\AIR_1_4"
+DEFAULT_IR_DIR = r"khashayar"
 
 # ---------- Device listing (local — no prompt) ----------
 def list_devices():

@@ -3,7 +3,7 @@ main.py
 Entry point for the project.
 """
 
-from audio_app import AudioApp
+from Core.audio_app import AudioApp
 import tkinter as tk
 
 def main():
