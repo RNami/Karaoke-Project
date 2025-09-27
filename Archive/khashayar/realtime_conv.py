@@ -57,9 +57,11 @@ def _find_fs_in_info_struct(d: dict) -> Optional[float]:
             info = d[info_key]
             for cand in ["fs", "Fs", "FS", "sampling_rate", "sr", "sample_rate", "samplingRate"]:
                 field = _get_struct_field(info, cand)
-                if field is None: continue
+                if field is None: 
+                    continue
                 val = _extract_scalar(field)
-                if val and val > 0: return float(val)
+                if val and val > 0: 
+                    return float(val)
     return None
 
 def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
@@ -69,7 +71,8 @@ def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
     if p.suffix.lower() == ".mat":
             d = loadmat(str(p), squeeze_me=True)
             ir = _pick_ir_array(d)
-            if ir.ndim == 1: ir = ir[:, None]
+            if ir.ndim == 1: 
+                ir = ir[:, None]
             if ir.ndim == 2 and ir.shape[0] < 8 and ir.shape[1] > 8:
                 ir = ir.T
             fs = _find_fs_in_info_struct(d)
@@ -77,7 +80,8 @@ def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
                 for cand in ["fs", "Fs", "FS", "sampling_rate", "sr", "sample_rate", "samplingRate"]:
                     if cand in d:
                         fs = _extract_scalar(d[cand]); 
-                        if fs: break
+                        if fs: 
+                            break
             if fs is None:
                 raise RuntimeError("IR sample rate not found in .mat")
             return ir.astype(np.float32), int(round(fs))
