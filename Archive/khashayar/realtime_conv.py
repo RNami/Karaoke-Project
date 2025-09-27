@@ -1,12 +1,15 @@
 # realtime_conv.py
 import sys, glob
+from math import gcd
 from pathlib import Path
 from typing import Tuple, Optional
+
 import numpy as np
 import soundfile as sf
 from scipy.io import loadmat
 from scipy.signal import resample_poly
 from numpy.fft import rfft, irfft
+
 
 from in_out import BLOCK
 from input_output_real import open_duplex_stream
@@ -19,13 +22,17 @@ def _extract_scalar(v):
     if isinstance(v, np.ndarray):
         v = np.squeeze(v)
         if v.size == 1: return float(v)
-    try: return float(v)
-    except Exception: return None
+    try: 
+        return float(v)
+    except Exception: 
+        return None
 
 def _get_struct_field(struct_obj, name: str):
     if hasattr(struct_obj, "dtype") and struct_obj.dtype is not None and struct_obj.dtype.names:
-        try: field = struct_obj[name]
-        except Exception: return None
+        try: 
+            field = struct_obj[name]
+        except Exception: 
+            return None
         return np.squeeze(field)
     return None
 
@@ -50,9 +57,11 @@ def _find_fs_in_info_struct(d: dict) -> Optional[float]:
             info = d[info_key]
             for cand in ["fs", "Fs", "FS", "sampling_rate", "sr", "sample_rate", "samplingRate"]:
                 field = _get_struct_field(info, cand)
-                if field is None: continue
+                if field is None: 
+                    continue
                 val = _extract_scalar(field)
-                if val and val > 0: return float(val)
+                if val and val > 0: 
+                    return float(val)
     return None
 
 def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
@@ -62,7 +71,8 @@ def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
     if p.suffix.lower() == ".mat":
             d = loadmat(str(p), squeeze_me=True)
             ir = _pick_ir_array(d)
-            if ir.ndim == 1: ir = ir[:, None]
+            if ir.ndim == 1: 
+                ir = ir[:, None]
             if ir.ndim == 2 and ir.shape[0] < 8 and ir.shape[1] > 8:
                 ir = ir.T
             fs = _find_fs_in_info_struct(d)
@@ -70,7 +80,8 @@ def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
                 for cand in ["fs", "Fs", "FS", "sampling_rate", "sr", "sample_rate", "samplingRate"]:
                     if cand in d:
                         fs = _extract_scalar(d[cand]); 
-                        if fs: break
+                        if fs: 
+                            break
             if fs is None:
                 raise RuntimeError("IR sample rate not found in .mat")
             return ir.astype(np.float32), int(round(fs))
@@ -89,8 +100,8 @@ def load_ir_any(ir_path: str) -> Tuple[np.ndarray, int]:
         raise RuntimeError(f"Unsupported IR path: {ir_path}")
 
 def resample_if_needed(x: np.ndarray, fs_in: int, fs_out: int) -> np.ndarray:
-    if fs_in == fs_out: return x
-    from math import gcd
+    if fs_in == fs_out: 
+        return x
     g = gcd(fs_out, fs_in)
     up, down = fs_out // g, fs_in // g
     chans = [resample_poly(x[:, c], up, down).astype(np.float32) for c in range(x.shape[1])]
