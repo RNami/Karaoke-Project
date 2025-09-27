@@ -6,7 +6,7 @@ import threading
 import time
 import os
 
-from audio_engine import AudioEngine, get_wasapi_devices
+from Core.audio_engine import AudioEngine, get_wasapi_devices
 
 
 class AudioApp:
