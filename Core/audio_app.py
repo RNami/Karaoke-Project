@@ -120,14 +120,23 @@ class AudioApp:
         ttk.Label(root, textvariable=self.rir_save_label_var).grid(row=7, column=1, sticky="w", padx=5, pady=5)
         ttk.Button(root, text="Browse...", command=self.choose_save_file).grid(row=7, column=2, padx=5, pady=5)
 
-        # --- Measure RIR button (row 8) ---
+        # Record length input
+        ttk.Label(root, text="Record Length (sec):").grid(row=8, column=0, sticky="e", padx=5, pady=5)
+        self.record_length_var = tk.StringVar(value="20")  # default to 20 sec
+        ttk.Entry(root, textvariable=self.record_length_var, width=5).grid(row=8, column=1, sticky="w", padx=5, pady=5)
+
+        # Measure RIR button
         self.rir_btn = ttk.Button(root, text="Measure RIR", command=self.start_rir_measurement)
-        self.rir_btn.grid(row=8, column=1, padx=5, pady=10)
+        self.rir_btn.grid(row=8, column=2, padx=5, pady=5)
 
         # --- Log box (row 9) ---
         self.log_box = tk.Text(root, height=6, width=70)
         self.log_box.grid(row=9, column=0, columnspan=3, padx=5, pady=5)
 
+    def log(self, msg: str):
+        """Append a message to the log box."""
+        self.log_box.insert(tk.END, msg + "\n")
+        self.log_box.see(tk.END)
 
     # -------------------------------------------------------------------------
     # Event handlers
@@ -245,6 +254,13 @@ class AudioApp:
 
 
     def start_rir_measurement(self):
+
+        try:
+            record_length = int(self.record_length_var.get())
+        except ValueError:
+            messagebox.showwarning("Invalid record length, using default 20 sec.")
+            return
+
         if self.engine.in_stream is None:
             print("[AudioApp] Audio stream not running.")
             return
@@ -259,12 +275,14 @@ class AudioApp:
             output_device_index=self.engine.output_device_index,  # <<< add this
             sweep_file='Archive/Sample_Audio/sine-sweep-linear-10sec-48000sr.wav',
             record_file=self.rir_save_path,
-            record_length=20
+            record_length=record_length
         )
 
         recorder.log_callback = lambda msg: (
             self.log_box.insert(tk.END, msg + "\n") or self.log_box.see(tk.END)
         )
+
+        self.log("[AudioApp] Starting RIR measurement...")
 
         threading.Thread(target=recorder.measure, daemon=True).start()
 
