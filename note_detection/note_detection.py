@@ -16,8 +16,9 @@ class NoteDetection:
         self.Nfft = 2 * self.L
         self.F = self.Nfft // 2 + 1
 
-        self.pitch_history = deque(maxlen=5)   # smooth frequency
-        self.note_history = deque(maxlen=5)    # smooth note decisions
+        self.pitch_history = deque(maxlen=50)   # smooth frequency
+        self.note_history = deque(maxlen=50)    # smooth note decisions
+        self.pitch_threshold = 1e-3
 
         self.last_X = None  # last FFT spectrum
 
@@ -66,7 +67,10 @@ class NoteDetection:
 
         # --- Find peak ---
         peak_idx = np.argmax(spectrum)
-        if spectrum[peak_idx] < 1e-6:
+        peak_amp = spectrum[peak_idx]
+
+        # --- Silence / too weak signal ---
+        if peak_amp < self.pitch_threshold:
             return 0.0, "N/A"
 
         # --- Parabolic interpolation for sub-bin accuracy ---
