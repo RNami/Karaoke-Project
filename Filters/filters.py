@@ -3,8 +3,7 @@ from numpy.fft import rfft, irfft
 from scipy.signal import lfilter
 
 # === Audio effects ============================================================
-class AudioEffects:
-    def robot_voice_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
+def robot_voice_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
         freq = 80  # Hz
         t = np.arange(len(buffer)) / rate
         square_wave = np.sign(np.sin(2 * np.pi * freq * t))
@@ -12,18 +11,18 @@ class AudioEffects:
         return effected.astype(np.int16)
 
 
-    def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
-        delay_ms = 300
-        decay = 0.1
-        delay_samples = int(rate * delay_ms / 1000)
-        b = np.zeros(delay_samples + 1)
-        b[0] = 1
-        a = np.zeros(delay_samples + 1)
-        a[0] = 1
-        a[-1] = -decay
-        effected = lfilter(b, a, buffer)
-        effected = np.clip(effected, -32768, 32767)
-        return effected.astype(np.int16)
+def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
+    delay_ms = 300
+    decay = 0.1
+    delay_samples = int(rate * delay_ms / 1000)
+    b = np.zeros(delay_samples + 1)
+    b[0] = 1
+    a = np.zeros(delay_samples + 1)
+    a[0] = 1
+    a[-1] = -decay
+    effected = lfilter(b, a, buffer)
+    effected = np.clip(effected, -32768, 32767)
+    return effected.astype(np.int16)
 
 
 class FDLConvolver:
