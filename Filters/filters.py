@@ -52,7 +52,7 @@ class FDLConvolver:
         self.ridx = 0
         self.overlap = np.zeros((self.C_out, self.L), dtype=np.float32)
 
-    def process_block(self, x_block_mono: np.ndarray) -> np.ndarray:
+    def process_block(self, x_block_mono: np.ndarray, note_detector=None) -> np.ndarray:
         """
         x_block_mono: (L, 1) float32 in [-1,1]
         returns: (L, C_out) float32

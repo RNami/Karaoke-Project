@@ -3,8 +3,8 @@ main.py
 Entry point for the project.
 """
 
-from Core.audio_app import AudioApp
 import tkinter as tk
+from .audio_app import AudioApp
 
 def main():
     """Main function controlling the application flow."""
