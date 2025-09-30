@@ -16,8 +16,8 @@ class NoteDetection:
         self.Nfft = 2 * self.L
         self.F = self.Nfft // 2 + 1
 
-        self.pitch_history = deque(maxlen=5)   # smooth frequency
-        self.note_history = deque(maxlen=5)    # smooth note decisions
+        self.pitch_history = deque(maxlen=50)   # smooth frequency
+        self.note_history = deque(maxlen=50)    # smooth note decisions
         self.pitch_threshold = 1e-3
 
         self.last_X = None  # last FFT spectrum
