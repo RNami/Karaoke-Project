@@ -83,6 +83,9 @@ class AudioEngine:
         self.dry = 0.0
 
         self.note_detector = NoteDetection(block=BUFFER_SIZE)
+        self.rir_measuring = False
+        self.rir_buffer = []
+        self.rir_recorder = None
 
     def load_ir(self, ir_path: str, target_fs: int):
         """
@@ -158,6 +161,9 @@ class AudioEngine:
         self.in_channels = max(1, min(in_dev["maxInputChannels"], 2))
         self.out_channels = max(1, min(out_dev["maxOutputChannels"], 2))
         self.effect_name = effect_name
+        self.output_device_index = out_idx
+        self.rir_measuring = False
+        self.rir_buffer = []
 
         # Open input stream
         self.in_stream = self.pa.open(format=FORMAT,
@@ -220,6 +226,11 @@ class AudioEngine:
                     n_frames = len(x) // self.in_channels
                     x = x[: n_frames * self.in_channels].reshape(n_frames, self.in_channels)
 
+            # capture for RIR if measuring
+            if self.rir_measuring:
+                # Convert to mono float32
+                x_mono = x.mean(axis=1).astype(np.float32) / 32768.0 if x.ndim > 1 else x.astype(np.float32) / 32768.0
+                self.rir_buffer.append(x_mono.copy())
             # RMS level (mono)
             x_mono_for_level = x.mean(axis=1) if x.ndim > 1 else x
             self.current_level = min(100.0, (np.sqrt(np.mean(x_mono_for_level.astype(np.float32) ** 2)) / 32768.0) * 100.0)
@@ -348,6 +359,19 @@ class AudioEngine:
         """
         self.stop_stream()
         self.pa.terminate()
+
+    def start_rir_recording(self):
+        """
+        Start buffering audio data for RIR measurement.
+        """
+        self.rir_buffer = []
+        self.rir_measuring = True
+
+    def stop_rir_recording(self):
+        """
+        Stop RIR measurement and return the recorded audio buffer.
+        """
+        self.rir_measuring = False
 
     @property
     def stream(self):

@@ -8,9 +8,11 @@ import time
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from threading import Thread
 
 from Core.audio_engine import AudioEngine
 from Core.io_utils import get_wasapi_devices
+from utils.rir_record import RIRRecorder
 
 
 class AudioApp:
@@ -108,6 +110,24 @@ class AudioApp:
 
         self.stop_btn = ttk.Button(root, text="Stop", command=self.stop_audio, state="disabled")
         self.stop_btn.grid(row=6, column=1, padx=5, pady=10)
+
+        # ---------------------------------------------------------------------
+        # RIR Measurement Button
+        # ---------------------------------------------------------------------
+        # --- Save path selection (row 7) ---
+        ttk.Label(root, text="Save RIR As:").grid(row=7, column=0, sticky="e")
+        self.rir_save_label_var = tk.StringVar(value="(none)")
+        ttk.Label(root, textvariable=self.rir_save_label_var).grid(row=7, column=1, sticky="w", padx=5, pady=5)
+        ttk.Button(root, text="Browse...", command=self.choose_save_file).grid(row=7, column=2, padx=5, pady=5)
+
+        # --- Measure RIR button (row 8) ---
+        self.rir_btn = ttk.Button(root, text="Measure RIR", command=self.start_rir_measurement)
+        self.rir_btn.grid(row=8, column=1, padx=5, pady=10)
+
+        # --- Log box (row 9) ---
+        self.log_box = tk.Text(root, height=6, width=70)
+        self.log_box.grid(row=9, column=0, columnspan=3, padx=5, pady=5)
+
 
     # -------------------------------------------------------------------------
     # Event handlers
@@ -222,6 +242,45 @@ class AudioApp:
         self.engine.stop_stream()
         self.engine.terminate()
         self.root.destroy()
+
+
+    def start_rir_measurement(self):
+        if self.engine.in_stream is None:
+            print("[AudioApp] Audio stream not running.")
+            return
+        if not hasattr(self, "rir_save_path") or not self.rir_save_path:
+            messagebox.showwarning("Save path", "Select a file path to save the measured RIR first.")
+            return
+
+        recorder = RIRRecorder(
+            in_stream=self.engine,
+            in_rate=self.engine.in_rate,
+            in_channels=self.engine.in_channels,
+            output_device_index=self.engine.output_device_index,  # <<< add this
+            sweep_file='Archive/Sample_Audio/sine-sweep-linear-10sec-48000sr.wav',
+            record_file=self.rir_save_path,
+            record_length=20
+        )
+
+        recorder.log_callback = lambda msg: (
+            self.log_box.insert(tk.END, msg + "\n") or self.log_box.see(tk.END)
+        )
+
+        threading.Thread(target=recorder.measure, daemon=True).start()
+
+
+
+    def choose_save_file(self):
+        """Prompt user to select a path to save the measured RIR WAV file."""
+        path = filedialog.asksaveasfilename(
+            title="Save measured RIR as...",
+            defaultextension=".wav",
+            filetypes=[("WAV files", "*.wav")]
+        )
+        if path:
+            self.rir_save_path = path
+            self.rir_save_label_var.set(os.path.basename(path))
+
 
 
 if __name__ == "__main__":
