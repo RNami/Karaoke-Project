@@ -1,5 +1,4 @@
 # measure_rir.py
-import wave
 import time
 from threading import Thread
 
@@ -52,7 +51,6 @@ class RIRRecorder:
     
     def _play_sweep(self, sweep, fs):
         self._log("[RIRRecorder] Playing sweep...")
-        import sounddevice as sd
         sd.play(sweep, fs)
         sd.wait()
         self._log("[RIRRecorder] Sweep finished.")
