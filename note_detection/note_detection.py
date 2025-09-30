@@ -1,31 +1,59 @@
+# note_detection/note_detection.py
 import numpy as np
 from collections import deque
+from numpy.fft import rfft
+
 
 class NoteDetection:
-    def __init__(self, ir: np.ndarray, block: int):
+    def __init__(self, block: int):
+        """
+        Parameters
+        ----------
+        block : int
+            Block size (L) used for FFT-based pitch detection.
+        """
         self.L = int(block)
         self.Nfft = 2 * self.L
         self.F = self.Nfft // 2 + 1
-        self.C_out = ir.shape[1]
 
         self.pitch_history = deque(maxlen=5)   # smooth frequency
         self.note_history = deque(maxlen=5)    # smooth note decisions
 
-        self.last_X = None  # last FFT block for pitch detection
-        
+        self.last_X = None  # last FFT spectrum
 
+    # ------------------------------------------------------------------
+    def process_block(self, x_block: np.ndarray, fs: int):
+        """
+        Take a mono block of time-domain audio and update spectrum.
+
+        Parameters
+        ----------
+        x_block : np.ndarray
+            Input block, shape (L,) or (L,1) int16/float32.
+        fs : int
+            Sampling rate in Hz.
+
+        Returns
+        -------
+        tuple[float, str]
+            (frequency in Hz, note string like 'A4').
+        """
+        if x_block.ndim > 1:
+            x_block = x_block[:, 0]
+
+        # normalize if int16
+        if x_block.dtype.kind in "iu":
+            x_block = x_block.astype(np.float32) / 32768.0
+
+        self.last_X = rfft(np.pad(x_block, (0, self.L)))
+        return self.detect_pitch(fs)
+
+    # ------------------------------------------------------------------
     def detect_pitch(self, fs: int) -> tuple[float, str]:
         """
-        Estimate pitch from the most recent FFT block (self.last_X).
-        Smooths both frequency and note decisions.
-        Returns (frequency Hz, note name).
+        Estimate pitch from the most recent FFT block.
         """
-        # if not hasattr(self, "last_X"):
-        #     print('DEBUG: No FFT block available for pitch detection.')
-        #     return 0.0, "N/A"
-
         if self.last_X is None:
-            print('DEBUG: No FFT block available for pitch detection.')
             return 0.0, "N/A"
 
         spectrum = np.abs(self.last_X)
@@ -38,8 +66,7 @@ class NoteDetection:
 
         # --- Find peak ---
         peak_idx = np.argmax(spectrum)
-        if spectrum[peak_idx] < 1e-6:  # silence / noise floor
-            print('DEBUG: No significant peak found in spectrum.')
+        if spectrum[peak_idx] < 1e-6:
             return 0.0, "N/A"
 
         # --- Parabolic interpolation for sub-bin accuracy ---
@@ -57,7 +84,6 @@ class NoteDetection:
         freq_smoothed = sum(self.pitch_history) / len(self.pitch_history)
 
         if freq_smoothed <= 0:
-            print('DEBUG: Smoothed frequency is non-positive.')
             return 0.0, "N/A"
 
         # --- Convert frequency -> MIDI note ---
@@ -73,9 +99,3 @@ class NoteDetection:
         note_smoothed = max(set(self.note_history), key=self.note_history.count)
 
         return freq_smoothed, note_smoothed
-
-    def update_spectrum(self, spectrum: np.ndarray):
-        """
-        Store spectrum for later pitch detection.
-        """
-        self.last_X = spectrum

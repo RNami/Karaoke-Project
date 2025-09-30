@@ -82,7 +82,7 @@ class AudioEngine:
         self.wet = 1.0
         self.dry = 0.0
 
-        self.note_detector = None
+        self.note_detector = NoteDetection(block=BUFFER_SIZE)
 
     def load_ir(self, ir_path: str, target_fs: int):
         """
@@ -115,7 +115,7 @@ class AudioEngine:
         self.convolver = FDLConvolver(ir, block=BUFFER_SIZE)
 
         # Initialize pitch detection with same block size
-        self.note_detector = NoteDetection(ir, block=BUFFER_SIZE)
+        self.note_detector = NoteDetection(block=BUFFER_SIZE)
 
     def set_wet_dry(self, wet: float, dry: float):
         """
@@ -224,9 +224,9 @@ class AudioEngine:
             x_mono_for_level = x.mean(axis=1) if x.ndim > 1 else x
             self.current_level = min(100.0, (np.sqrt(np.mean(x_mono_for_level.astype(np.float32) ** 2)) / 32768.0) * 100.0)
 
-            # Note Detection
+            # Note Detection (always runs, independent of effect)
             if self.note_detector is not None:
-                freq, note = self.note_detector.detect_pitch(fs=self.in_rate)
+                freq, note = self.note_detector.process_block(x_mono_for_level.astype(np.int16), fs=self.in_rate)
                 self.current_note = note
 
             # Apply effect

@@ -60,9 +60,6 @@ class FDLConvolver:
         x = x_block_mono[:, 0]
         X_i = rfft(np.pad(x, (0, self.L)))     # size 2L -> F bins
 
-        if note_detector is not None:
-            note_detector.update_spectrum(X_i)
-
         self.Xring[self.ridx, :] = X_i
         # Accumulate per output channel
         Yc = np.zeros((self.C_out, self.F), dtype=np.complex64)
