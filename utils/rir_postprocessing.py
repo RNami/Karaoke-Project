@@ -16,13 +16,15 @@ def import_impulse_response():
 def get_fft(x, fs, block_size=256):
     # Calculate FFT size needed to get num_bins in RFFT
     out_fft = block_size*2
-    
     # Perform RFFT
     freq_bins = np.fft.rfft(x[:,0],out_fft,axis=0)
     return freq_bins
 
-def design_inv_filter(X)
-
+def design_inv_filter(X, block_size=256):
+    noise = np.random.normal(0,1,len(X))
+    Noise_fft = np.fft.rfft(noise, 2*block_size )
+    RTF = np.conj(X.T) / np.abs(X)**2 + Noise_fft
+    np.save('RTF.npy', RTF)
 
 def plot_impulse(x,fs):
     start = 0
@@ -61,9 +63,11 @@ def cut_impulse(x, fs, window_duration=2, hop_time=0.5):
                 return signal[:end]
     return signal
 
-x, fs = import_impulse_response()
-plot_impulse(x, fs)
-x = cut_impulse(x,fs)
-plot_impulse(x, fs)
-X_fft = get_fft(x, fs)
-plot_freq(X_fft, fs)
+
+# x, fs = import_impulse_response()
+# plot_impulse(x, fs)
+# x = cut_impulse(x,fs)
+# plot_impulse(x, fs)
+# X_fft = get_fft(x, fs)
+# plot_freq(X_fft, fs)
+# design_inv_filter(X_fft)

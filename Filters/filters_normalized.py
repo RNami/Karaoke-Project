@@ -71,13 +71,17 @@ class FDLConvolver:
         self.ridx = 0
         self.overlap = np.zeros((self.C_out, self.L), dtype=np.float32)
 
-    def process_block(self, x_block_mono: np.ndarray, note_detector=None) -> np.ndarray:
+    def process_block(self, x_block_mono: np.ndarray, note_detector=None, eq=False) -> np.ndarray:
         """
         x_block_mono: (L, 1) float32 in [-1,1]
         returns: (L, C_out) float32
         """
         x = x_block_mono[:, 0]
         X_i = rfft(np.pad(x, (0, self.L)))     # size 2L -> F bins
+
+        if eq:
+            eq_freq = np.load('utils/RTF.npy')
+            X_i = X_i * eq_freq
 
         self.Xring[self.ridx, :] = X_i
         # Accumulate per output channel
