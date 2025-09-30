@@ -13,7 +13,7 @@ from note_detection.note_detection import NoteDetection
 
 
 FORMAT = pyaudio.paInt16
-BUFFER_SIZE = 256  # fixed internal buffer, GUI can still show value if desired
+BUFFER_SIZE = 128  # fixed internal buffer, GUI can still show value if desired
 
 
 # === Engine ===================================================================
