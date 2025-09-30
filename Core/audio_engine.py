@@ -11,6 +11,7 @@ import soundfile as sf
 
 from Filters.filters import FDLConvolver, AudioEffects
 from Filters.ir_utils import load_ir_any, resample_if_needed
+from note_detection.note_detection import NoteDetection
 
 FORMAT = pyaudio.paInt16
 BUFFER_SIZE = 256   # fixed internal buffer, GUI can still show value if desired
@@ -31,6 +32,8 @@ class AudioEngine:
         self.effect_name = "None"
         self.current_level = 0.0  # mic RMS level 0–100
         self.lock = threading.Lock()
+        self.note_detector = None
+        self.current_note = "C"
 
         # convolver related
         self.convolver = None
@@ -55,6 +58,8 @@ class AudioEngine:
         self.ir_channels = ir.shape[1]
         # convolver expects (M, C_out)
         self.convolver = FDLConvolver(ir, block=BUFFER_SIZE)
+
+        self.note_detector = NoteDetection(ir, block=BUFFER_SIZE)
 
     def set_wet_dry(self, wet: float, dry: float):
         self.wet = float(wet)
@@ -125,6 +130,11 @@ class AudioEngine:
             # RMS level (mono)
             x_mono_for_level = x.mean(axis=1) if x.ndim > 1 else x
             self.current_level = min(100.0, (np.sqrt(np.mean(x_mono_for_level.astype(np.float32) ** 2)) / 32768.0) * 100.0)
+            
+            # Note Detection
+            if self.note_detector is not None:
+                freq, note = self.note_detector.detect_pitch(fs=self.in_rate)
+                self.current_note = note
 
             # Apply effect
             if self.effect_name == "Robot Voice":
@@ -157,7 +167,7 @@ class AudioEngine:
                         x_mono = x_mono[:BUFFER_SIZE]
                 x_block = x_mono[:, None]  # (L,1)
                 try:
-                    y_block = self.convolver.process_block(x_block)  # (L, C_out) float32
+                    y_block = self.convolver.process_block(x_block, note_detector=self.note_detector)  # (L, C_out) float32
                 except Exception as e:
                     print(f"[AudioEngine] convolver process error: {e}")
                     y_block = np.repeat(x_block, self.out_channels, axis=1)
