@@ -88,7 +88,7 @@ class RIRRecorder:
 
         # Start recording first
         record_thread.start()
-        time.sleep(1)  # ensure recording ready
+        time.sleep(5)  # ensure recording ready
         playback_thread.start()
 
         record_thread.join()
