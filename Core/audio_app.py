@@ -110,6 +110,9 @@ class AudioApp:
         self.stop_btn = ttk.Button(root, text="Stop", command=self.stop_audio, state="disabled")
         self.stop_btn.grid(row=6, column=1, padx=5, pady=10)
 
+        self.about_btn = tk.Button(root, text="About", command=self.show_about)
+        self.about_btn.grid(row=6, column=2, padx=5, pady=10)
+
         # ---------------------------------------------------------------------
         # RIR Measurement Button
         # ---------------------------------------------------------------------
@@ -240,6 +243,22 @@ class AudioApp:
         self.note.set(self.engine.current_note)
         if self.engine.running:
             self.root.after(50, self.update_pitch_label)
+
+
+    # -------------------------------------------------------------------------
+    # About Page
+    # -------------------------------------------------------------------------
+    def show_about(self):
+        about_text = (
+            "Karaoke Reverb 1.0\n"
+            "1 Oct 2025\n"
+            "Part of FERIENAKADEMIE 2025 Course 10 \n\n"
+            "Developers:\n"
+            "Samuel, Phillip, Romina, Jeongjoo, Bhavya, Khashayar, Shitao\n\n"
+
+            "made with <3 in Sarntal"
+        )
+        messagebox.showinfo("About", about_text)
 
     # -------------------------------------------------------------------------
     # Cleanup
