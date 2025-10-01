@@ -5,11 +5,14 @@ from threading import Thread
 import numpy as np
 import sounddevice as sd
 
+import utils.rir_postprocessing as rirPP
+
 class RIRRecorder:
     CHUNK = 1024  # default, will be overwritten by buffer_size
 
     def __init__(self, in_stream, in_rate, in_channels, output_device_index,
                  sweep_file: str, record_file: str,
+                 current_blocksize:int=256,
                  record_length: int = 20):
         """
         RIR measurement class.
@@ -39,6 +42,7 @@ class RIRRecorder:
         self.record_file = record_file
         self.record_length = record_length
         self.buffer = []
+        self.current_blocksize = current_blocksize
 
         # Dynamically match chunk size to input stream if possible
         self.CHUNK = in_stream._frames_per_buffer if hasattr(in_stream, "_frames_per_buffer") else 1024
@@ -95,3 +99,7 @@ class RIRRecorder:
         playback_thread.join()
 
         self._log("[RIRRecorder] Measurement complete.")
+        self._log("[RIRRecorder] Postprocessing starting.")
+        rirPP.run_postprocessing(self.record_file, self.current_blocksize)
+        self._log("[RIRRecorder] EQ File saved!")
+

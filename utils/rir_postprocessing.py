@@ -6,8 +6,8 @@ CHUNK = 256
 START_SWEEP = 6
 
 
-def import_impulse_response():
-    x, fs = sf.read('IR Database/AIR_1_4/test.wav', always_2d=True)
+def import_impulse_response(file:str):
+    x, fs = sf.read(file, always_2d=True)
     if x.shape[1] == 2:
         x = (x[:,0]+x[:,1])/2
     x /= np.max(x)
@@ -23,8 +23,8 @@ def get_fft(x, fs, block_size=256):
 def design_inv_filter(X, block_size=256):
     noise = np.random.normal(0,1,len(X))
     Noise_fft = np.fft.rfft(noise, 2*block_size )
-    RTF = np.conj(X.T) / np.abs(X)**2 + Noise_fft
-    np.save('RTF.npy', RTF)
+    RTF_inv = np.conj(X.T) / np.abs(X)**2 + Noise_fft
+    np.save('utils/RTF.npy', RTF_inv)
 
 def plot_impulse(x,fs):
     start = 0
@@ -63,11 +63,13 @@ def cut_impulse(x, fs, window_duration=2, hop_time=0.5):
                 return signal[:end]
     return signal
 
-
-# x, fs = import_impulse_response()
-# plot_impulse(x, fs)
-# x = cut_impulse(x,fs)
-# plot_impulse(x, fs)
-# X_fft = get_fft(x, fs)
-# plot_freq(X_fft, fs)
-# design_inv_filter(X_fft)
+def run_postprocessing(file, block_size):
+    x, fs = import_impulse_response(file)
+    # plot_impulse(x, fs)
+    x = cut_impulse(x,fs)
+    print(x.shape)
+    # plot_impulse(x, fs)
+    print(x.shape)
+    X_fft = get_fft(x, fs, block_size)
+    plot_freq(X_fft, fs)
+    design_inv_filter(X_fft, block_size)
