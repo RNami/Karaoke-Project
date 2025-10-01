@@ -100,6 +100,6 @@ class RIRRecorder:
 
         self._log("[RIRRecorder] Measurement complete.")
         self._log("[RIRRecorder] Postprocessing starting.")
-        rirPP.run_postprocessing(self.record_file, self.current_blocksize)
+        # rirPP.run_postprocessing(self.record_file, self.current_blocksize)
         self._log("[RIRRecorder] EQ File saved!")
 

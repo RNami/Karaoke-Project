@@ -110,7 +110,10 @@ class AudioApp:
         self.stop_btn = ttk.Button(root, text="Stop", command=self.stop_audio, state="disabled")
         self.stop_btn.grid(row=6, column=1, padx=5, pady=10)
 
-        self.about_btn = tk.Button(root, text="About", command=self.show_about)
+        # ---------------------------------------------------------------------
+        # About Button
+        # ---------------------------------------------------------------------
+        self.about_btn = ttk.Button(root, text="About", command=self.show_about)
         self.about_btn.grid(row=6, column=2, padx=5, pady=10)
 
         # ---------------------------------------------------------------------
