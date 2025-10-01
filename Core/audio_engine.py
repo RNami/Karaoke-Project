@@ -63,7 +63,7 @@ class AudioEngine:
         Synchronization for thread-safe stream operations.
     """
 
-    def __init__(self):
+    def __init__(self, buffer_size=128):
         """Initialize the audio engine and prepare internal state."""
         self.pa = pyaudio.PyAudio()
         self.in_stream = None
@@ -86,6 +86,8 @@ class AudioEngine:
         self.rir_measuring = False
         self.rir_buffer = []
         self.rir_recorder = None
+
+        self.buffer_size = buffer_size
 
     def load_ir(self, ir_path: str, target_fs: int):
         """

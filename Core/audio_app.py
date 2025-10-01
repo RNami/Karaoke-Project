@@ -8,7 +8,6 @@ import time
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from threading import Thread
 
 from Core.audio_engine import AudioEngine
 from Core.io_utils import get_wasapi_devices
@@ -275,7 +274,8 @@ class AudioApp:
             output_device_index=self.engine.output_device_index,  # <<< add this
             sweep_file='Archive/Sample_Audio/sine-sweep-linear-10sec-48000sr.wav',
             record_file=self.rir_save_path,
-            record_length=record_length
+            record_length=record_length,
+            current_blocksize=self.engine.buffer_size
         )
 
         recorder.log_callback = lambda msg: (
