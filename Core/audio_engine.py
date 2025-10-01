@@ -7,7 +7,7 @@ import pyaudio
 from scipy.signal import resample_poly
 
 
-from Filters.filter_improved import FDLConvolver, concert_hall_effect, robot_voice_effect
+from Filters.filters import FDLConvolver, concert_hall_effect, robot_voice_effect
 from Filters.ir_utils import load_ir_any, resample_if_needed
 from note_detection.note_detection import NoteDetection
 
