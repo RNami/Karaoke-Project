@@ -3,7 +3,7 @@ import soundfile as sf
 from matplotlib import pyplot as plt
 from scipy import fft
 CHUNK = 256
-START_SWEEP = 6
+START_SWEEP = 5
 
 
 def import_impulse_response(file:str):
@@ -18,6 +18,7 @@ def get_fft(x, fs, block_size=256):
     out_fft = block_size*2
     # Perform RFFT
     freq_bins = np.fft.rfft(x[:,0],out_fft,axis=0)
+    freq_bins = freq_bins/np.max(freq_bins)
     return freq_bins
 
 def design_inv_filter(X, block_size=256):
@@ -35,13 +36,13 @@ def plot_impulse(x,fs):
     plt.show()
 
 def plot_freq(X, fs):
-    f = np.fft.fftfreq(len(X), 1/fs)
+    f = np.fft.fftfreq(len(X), d=1/fs)
     print(X.shape)
-    plt.semilogx(f,X)
+    plt.loglog(f, np.abs(X))
     plt.show()
 
 
-def cut_impulse(x, fs, window_duration=2, hop_time=0.5):
+def cut_impulse(x, fs, window_duration=1, hop_time=0.5):
     quite_count = 0
     start_index = int(START_SWEEP*fs)
     noise = x[:start_index]
@@ -67,9 +68,9 @@ def run_postprocessing(file, block_size):
     x, fs = import_impulse_response(file)
     # plot_impulse(x, fs)
     x = cut_impulse(x,fs)
-    print(x.shape)
+    # print(x.shape)
     # plot_impulse(x, fs)
-    print(x.shape)
+    # print(x.shape)
     X_fft = get_fft(x, fs, block_size)
-    plot_freq(X_fft, fs)
+    # plot_freq(X_fft, fs)
     design_inv_filter(X_fft, block_size)
