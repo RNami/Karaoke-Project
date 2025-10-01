@@ -28,7 +28,7 @@ def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
 class FDLConvolver:
     # ---------- small helper (added) ----------
     @staticmethod
-    def _normalize_ir(ir: np.ndarray, peak: float = 0.99) -> np.ndarray:
+    def _normalize_ir(ir: np.ndarray, peak: float = 0.5) -> np.ndarray:
         """
         Normalize the IR so its absolute peak equals `peak` (default 0.99).
         - Accepts (M,) or (M, C) arrays.
@@ -42,13 +42,20 @@ class FDLConvolver:
             return ir
         return (peak / m) * ir
 
-    def __init__(self, ir: np.ndarray, block: int):
+    def __init__(self, ir: np.ndarray, block: int, eq:bool = False):
         """
         ir: (M, C_out), block: L
         Mono input. Output channels = ir.shape[1].
         """
         # --- Apply normalization BEFORE any partitioning/FFT ---
-        ir = self._normalize_ir(ir, peak=0.99)
+        ir = self._normalize_ir(ir, peak=0.5)
+        self.eq = eq
+        if self.eq:
+            try:
+                self.eq_freq = np.load('utils/RTF.npy')
+            except:
+                raise ImportError('There is no such file. Please run the measurement first!')
+
 
         self.L = int(block)
         self.Nfft = 2 * self.L
@@ -71,7 +78,7 @@ class FDLConvolver:
         self.ridx = 0
         self.overlap = np.zeros((self.C_out, self.L), dtype=np.float32)
 
-    def process_block(self, x_block_mono: np.ndarray, note_detector=None, eq=False) -> np.ndarray:
+    def process_block(self, x_block_mono: np.ndarray, note_detector=None) -> np.ndarray:
         """
         x_block_mono: (L, 1) float32 in [-1,1]
         returns: (L, C_out) float32
@@ -79,9 +86,8 @@ class FDLConvolver:
         x = x_block_mono[:, 0]
         X_i = rfft(np.pad(x, (0, self.L)))     # size 2L -> F bins
 
-        if eq:
-            eq_freq = np.load('utils/RTF.npy')
-            X_i = X_i * eq_freq
+        if self.eq:
+            X_i = X_i * self.eq_freq
 
         self.Xring[self.ridx, :] = X_i
         # Accumulate per output channel

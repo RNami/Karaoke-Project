@@ -26,7 +26,7 @@ def concert_hall_effect(buffer: np.ndarray, rate: int) -> np.ndarray:
 
 
 class FDLConvolver:
-    def __init__(self, ir: np.ndarray, block: int):
+    def __init__(self, ir: np.ndarray, block: int, eq:bool = False):
         """
         ir: (M, C_out), block: L
         Mono input. Output channels = ir.shape[1].
@@ -35,6 +35,13 @@ class FDLConvolver:
         self.Nfft = 2 * self.L
         self.F = self.Nfft // 2 + 1
         self.C_out = ir.shape[1]
+
+        self.eq = eq
+        if self.eq:
+            try:
+                self.eq_freq = np.load('utils/RTF.npy')
+            except:
+                raise ImportError('There is no such file. Please run the measurement first!')
 
         # Partition IR and precompute spectra per output channel
         M = ir.shape[0]
@@ -59,6 +66,9 @@ class FDLConvolver:
         """
         x = x_block_mono[:, 0]
         X_i = rfft(np.pad(x, (0, self.L)))     # size 2L -> F bins
+
+        if self.eq:
+            X_i = X_i * self.eq_freq
 
         self.Xring[self.ridx, :] = X_i
         # Accumulate per output channel
