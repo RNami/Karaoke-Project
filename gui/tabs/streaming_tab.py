@@ -178,11 +178,11 @@ class StreamingTab:
         self.stop_btn.config(state="disabled")
 
     def monitor_stream(self):
-        while self.engine.running:
-            if not self.engine.in_stream or not self.engine.in_stream.is_active():
-                break
-        self.start_btn.config(state="normal")
-        self.stop_btn.config(state="disabled")
+        if self.engine.is_stream_active():
+            self.frame.after(50, self.monitor_stream)
+        else:
+            self.start_btn.config(state="normal")
+            self.stop_btn.config(state="disabled")
 
     # ----------------------------
     # UI updates
@@ -190,6 +190,7 @@ class StreamingTab:
     def update_level_bar(self):
         self.level.set(self.engine.current_level)
         if self.engine.running:
+
             self.frame.after(50, self.update_level_bar)
 
     def update_pitch_label(self):

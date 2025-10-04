@@ -64,11 +64,14 @@ class RIRRecorder:
         self._log("[RIRRecorder] Recording started (capturing from engine)...")
 
         # Tell engine to start recording
-        self.in_stream.start_rir_recording()  # <-- engine method
+        self.in_stream.start_rir_recording(filename=self.record_file)  # <-- engine method
         time.sleep(self.record_length)        # wait for sweep + measurement
         self.in_stream.stop_rir_recording()
 
         # Concatenate captured blocks
+        if not hasattr(self.in_stream, "rir_buffer") or not self.in_stream.rir_buffer:
+            self._log("[RIRRecorder] Warning: No RIR data captured — buffer is empty.")
+            return
         data = np.concatenate(self.in_stream.rir_buffer)
         # Convert back to int16
         data_int16 = np.clip(data * 32767, -32768, 32767).astype(np.int16)

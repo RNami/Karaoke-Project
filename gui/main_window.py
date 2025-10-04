@@ -24,7 +24,7 @@ class AudioApp:
         notebook.pack(fill='both', expand=True)
 
         self.streaming_tab = StreamingTab(notebook, self.engine, get_wasapi_devices(self.engine.pa))
-        self.rir_tab = RIRTab(notebook, self.engine)
+        self.rir_tab = RIRTab(notebook, self.engine, get_wasapi_devices(self.engine.pa))
         self.about_tab = AboutTab(notebook)
 
         notebook.add(self.streaming_tab.frame, text="Streaming")
@@ -38,7 +38,6 @@ class AudioApp:
 
 
     def on_close(self):
-        self.engine.running = False
         self.engine.stop_stream()
         self.engine.terminate()
         self.root.destroy()
