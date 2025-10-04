@@ -38,6 +38,8 @@ class StreamingTab:
             values=[f"[{d['index']} {d['name']}" for d in self.input_devices],
             state="readonly", width=50, row=0, column=1, sticky="we"
         )
+        if self.input_devices:
+            self.in_combo.current(0)
 
         make_label(
             self.frame, text="Output Device:",
@@ -49,6 +51,8 @@ class StreamingTab:
             values=[f"[{d['index']}] {d['name']}" for d in self.output_devices],
             state="readonly", width=50, row=1, column=1, sticky="we"
         )
+        if self.output_devices:
+            self.out_combo.current(0)
 
         # ----------------------------
         # Effect selection
