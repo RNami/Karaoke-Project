@@ -4,13 +4,13 @@ import threading
 import os
 
 from utils.rir_record import RIRRecorder
-from gui.widgets import make_label, make_entry, make_button, make_textbox
+from gui.widgets import make_label, make_entry, make_button, make_textbox, make_frame
 
 
 class RIRTab:
     def __init__(self, notebook, engine):
         self.engine = engine
-        self.frame = ttk.Frame(notebook)
+        self.frame = make_frame(notebook)
 
         # ------------------------------------------------------------------
         # Save path selection
