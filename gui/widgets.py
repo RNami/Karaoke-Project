@@ -1,9 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
 
+# ----------------------------
+# Global defaults
+# ----------------------------
 DEFAULT_PADX = 5
 DEFAULT_PADY = 5
 DEFAULT_STICKY = "w"
+
 
 # ----------------------------
 # Internal helper
@@ -20,6 +24,7 @@ def _grid_widget(widget, row=None, column=None, **grid_opts):
             columnspan=grid_opts.pop("columnspan", 1),
         )
     return widget
+
 
 # ----------------------------
 # Basic widget creators
@@ -63,6 +68,7 @@ def make_textbox(parent, height=8, width=50, row=None, column=None, **kwargs):
     box = tk.Text(parent, height=height, width=width)
     return _grid_widget(box, row, column, **kwargs)
 
+
 # ----------------------------
 # Containers
 # ----------------------------
@@ -76,3 +82,30 @@ def make_labelframe(parent, text="", relief="groove", borderwidth=2,
     """Create a labeled frame with default grid layout."""
     lfrm = ttk.LabelFrame(parent, text=text, relief=relief, borderwidth=borderwidth)
     return _grid_widget(lfrm, row, column, **kwargs)
+
+
+# ----------------------------
+# Grid configuration utilities
+# ----------------------------
+def configure_grid(frame, rows=None, cols=None, weight=1):
+    """Configure grid responsiveness; accepts int or list."""
+    if rows is not None:
+        if isinstance(rows, int):
+            rows = [rows]
+        for r in rows:
+            frame.rowconfigure(r, weight=weight)
+
+    if cols is not None:
+        if isinstance(cols, int):
+            cols = [cols]
+        for c in cols:
+            frame.columnconfigure(c, weight=weight)
+
+def expand(widget):
+    """
+    Shortcut to make a widget expand in all directions (sticky 'nsew').
+    Example:
+        expand(my_frame)
+    """
+    widget.grid_configure(sticky="nsew")
+    return widget

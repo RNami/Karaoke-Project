@@ -4,7 +4,14 @@ import threading
 import os
 
 from utils.rir_record import RIRRecorder
-from gui.widgets import make_label, make_entry, make_button, make_textbox, make_frame
+from gui.widgets import (
+    make_label,
+    make_entry,
+    make_button,
+    make_textbox,
+    make_frame,
+    configure_grid,
+)
 
 
 class RIRTab:
@@ -12,37 +19,48 @@ class RIRTab:
         self.engine = engine
         self.frame = make_frame(notebook)
 
-        # ------------------------------------------------------------------
+        # ----------------------------
+        # Responsive grid layout
+        # ----------------------------
+        configure_grid(self.frame, rows=[0, 1, 2], cols=[0, 1, 2], weight=1)
+
+        # ----------------------------
         # Save path selection
-        # ------------------------------------------------------------------
-        make_label(self.frame,
-                   "Save RIR As:",
-                   row=0, column=0, sticky="e")
-        self.rir_save_label_var = tk.StringVar(value="(none)")
-        make_label(self.frame,
-                   textvariable=self.rir_save_label_var,
-                   row=0, column=1, sticky="w")
-        make_button(self.frame,
-                    "Browse...",
-                    command=self.choose_save_file,
-                    row=0, column=2)
-        # ------------------------------------------------------------------
-        # Record length input
-        # ------------------------------------------------------------------
-        ttk.Label(self.frame, text="Record Length (sec):").grid(
-            row=1, column=0, sticky="e", padx=5, pady=5
+        # ----------------------------
+        make_label(
+            self.frame,
+            "Save RIR As:",
+            row=0, column=0, sticky="e",
         )
-        self.record_length_var = tk.StringVar(value="20")
-        ttk.Entry(self.frame, textvariable=self.record_length_var, width=5).grid(
-            row=1, column=1, sticky="w", padx=5, pady=5
+        self.rir_save_label_var = tk.StringVar(value="(none)")
+        make_label(
+            self.frame,
+            textvariable=self.rir_save_label_var,
+            row=0, column=1, sticky="w",
+        )
+        make_button(
+            self.frame,
+            "Browse...",
+            command=self.choose_save_file,
+            row=0, column=2, sticky="we",
         )
 
-        make_label(self.frame,
-                   "Record Length (sec):",
-                   row=1, column=0, sticky="e")
+
+        # ----------------------------
+        # Record length input
+        # ----------------------------
+        make_label(
+            self.frame,
+            text="Record Length (sec):",
+            row=1, column=0, sticky="e"
+        )
         self.record_length_var = tk.StringVar(value="20")
-        make_entry(self.frame, textvariable=self.record_length_var, width=5,
-                   row=1, column=1, sticky="w")
+        make_entry(
+            self.frame,
+            textvariable=self.record_length_var,
+            width=5,
+            row=1, column=1, sticky="we"
+        )
         
         # ------------------------------------------------------------------
         # Measure button
@@ -50,7 +68,8 @@ class RIRTab:
         make_button(self.frame,
                     "Measure RIR",
                     command=self.start_rir_measurement,
-                    row=1, column=2)
+                    row=1, column=2, sticky="we")
+        
         # ------------------------------------------------------------------
         # Log box
         # ------------------------------------------------------------------
@@ -59,7 +78,7 @@ class RIRTab:
                    row=2, column=0, sticky="ne")
         self.log_box = make_textbox(self.frame,
                                     height=12, width=70,
-                                    row=2, column=1, columnspan=2)
+                                    row=2, column=1, columnspan=2, sticky="nsew")
     # ----------------------------------------------------------------------
     # Logging helper
     # ----------------------------------------------------------------------

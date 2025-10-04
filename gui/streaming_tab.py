@@ -3,18 +3,28 @@ from tkinter import ttk, filedialog, messagebox
 import threading
 import os
 
-from gui.widgets import make_label, make_button, make_combobox, make_progressbar, make_frame
+from gui.widgets import (
+    make_label,
+    make_button,
+    make_combobox,
+    make_progressbar,
+    make_frame,
+    configure_grid
+)
 
 class StreamingTab:
     def __init__(self, notebook, engine, devices):
         self.engine = engine
         self.frame = make_frame(notebook)
 
+        # Configure grid for resizing
+        # 3 columns (labels, controls, optional buttons)
+        configure_grid(self.frame, cols=3, rows=8, weight=1)
+
         # ----------------------------
         # Device selection
         # ----------------------------
         self.devices = devices
-
         self.input_devices = [d for d in devices if d["max_in"] > 0]
         self.output_devices = [d for d in devices if d["max_out"] > 0]
 
@@ -26,8 +36,9 @@ class StreamingTab:
         self.in_combo = make_combobox(
             self.frame, textvariable=self.in_var,
             values=[f"[{d['index']} {d['name']}" for d in self.input_devices],
-            state="readonly", width=50, row=0, column=1
+            state="readonly", width=50, row=0, column=1, sticky="we"
         )
+
         make_label(
             self.frame, text="Output Device:",
             row=1, column=0, sticky="e"
@@ -36,13 +47,12 @@ class StreamingTab:
         self.out_combo = make_combobox(
             self.frame, textvariable=self.out_var,
             values=[f"[{d['index']}] {d['name']}" for d in self.output_devices],
-            state="readonly", width=50, row=1, column=1
+            state="readonly", width=50, row=1, column=1, sticky="we"
         )
 
         # ----------------------------
         # Effect selection
         # ----------------------------
-        
         make_label(
             self.frame, text="Effect:",
             row=2, column=0, sticky="e"
@@ -51,7 +61,7 @@ class StreamingTab:
         self.effect_combo = make_combobox(
             self.frame, textvariable=self.effect_var,
             values = ["None", "Robot Voice", "Concert Hall", "Convolver"],
-            state="readonly", row=2, column=1
+            state="readonly", row=2, column=1, sticky="we"
         )
         self.effect_combo.bind("<<ComboboxSelected>>", self.on_effect_changed)
 
@@ -65,12 +75,12 @@ class StreamingTab:
         self.ir_path_var = tk.StringVar(value="(none)")
         make_label(
             self.frame, textvariable=self.ir_path_var,
-            row=3, column=1, sticky="w"
+            row=3, column=1, sticky="we"
         )
         make_button(
             self.frame, "Choose IR...",
+            command=self.choose_ir,
             row=3, column=2,
-            command=self.choose_ir
         )
 
         # ----------------------------
@@ -84,7 +94,7 @@ class StreamingTab:
         make_progressbar(
             self.frame, variable=self.level,
             maximum=100, length=300,
-            row=4, column=1
+            row=4, column=1, sticky="we"
         )
 
         # ----------------------------
@@ -105,13 +115,13 @@ class StreamingTab:
         # ----------------------------
         self.start_btn = make_button(
             self.frame, text="Start",
-            row=6, column=0,
-            command=self.start_audio
+            command=self.start_audio,
+            row=6, column=0, sticky="we",
         )
         self.stop_btn = make_button(
             self.frame, text="Stop",
-            row=6, column=1,
             command=self.stop_audio,
+            row=6, column=1, sticky="we",
             state="disabled"
         )
 
