@@ -4,6 +4,7 @@ import threading
 import os
 
 from utils.rir_record import RIRRecorder
+from gui.widgets import make_label, make_entry, make_button, make_textbox
 
 
 class RIRTab:
@@ -14,15 +15,17 @@ class RIRTab:
         # ------------------------------------------------------------------
         # Save path selection
         # ------------------------------------------------------------------
-        ttk.Label(self.frame, text="Save RIR As:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        make_label(self.frame,
+                   "Save RIR As:",
+                   row=0, column=0, sticky="e")
         self.rir_save_label_var = tk.StringVar(value="(none)")
-        ttk.Label(self.frame, textvariable=self.rir_save_label_var).grid(
-            row=0, column=1, sticky="w", padx=5, pady=5
-        )
-        ttk.Button(self.frame, text="Browse...", command=self.choose_save_file).grid(
-            row=0, column=2, padx=5, pady=5
-        )
-
+        make_label(self.frame,
+                   textvariable=self.rir_save_label_var,
+                   row=0, column=1, sticky="w")
+        make_button(self.frame,
+                    "Browse...",
+                    command=self.choose_save_file,
+                    row=0, column=2)
         # ------------------------------------------------------------------
         # Record length input
         # ------------------------------------------------------------------
@@ -34,23 +37,33 @@ class RIRTab:
             row=1, column=1, sticky="w", padx=5, pady=5
         )
 
+        make_label(self.frame,
+                   "Record Length (sec):",
+                   row=1, column=0, sticky="e")
+        self.record_length_var = tk.StringVar(value="20")
+        make_entry(self.frame, textvariable=self.record_length_var, width=5,
+                   row=1, column=1, sticky="w")
+        
         # ------------------------------------------------------------------
         # Measure button
         # ------------------------------------------------------------------
-        self.rir_btn = ttk.Button(self.frame, text="Measure RIR", command=self.start_rir_measurement)
-        self.rir_btn.grid(row=1, column=2, padx=5, pady=5)
-
+        make_button(self.frame,
+                    "Measure RIR",
+                    command=self.start_rir_measurement,
+                    row=1, column=2)
         # ------------------------------------------------------------------
         # Log box
         # ------------------------------------------------------------------
-        ttk.Label(self.frame, text="Log:").grid(row=2, column=0, sticky="ne", padx=5, pady=5)
-        self.log_box = tk.Text(self.frame, height=12, width=70)
-        self.log_box.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
-
+        make_label(self.frame,
+                   "Log:",
+                   row=2, column=0, sticky="ne")
+        self.log_box = make_textbox(self.frame,
+                                    height=12, width=70,
+                                    row=2, column=1, columnspan=2)
     # ----------------------------------------------------------------------
     # Logging helper
     # ----------------------------------------------------------------------
-    def log(self, msg: str):
+    def _log(self, msg: str):
         self.log_box.insert(tk.END, msg + "\n")
         self.log_box.see(tk.END)
 
@@ -79,7 +92,7 @@ class RIRTab:
 
         # Preconditions
         if self.engine.in_stream is None:
-            self.log("[RIRTab] Audio stream not running. Start streaming first.")
+            self._log("[RIRTab] Audio stream not running. Start streaming first.")
             return
         if not hasattr(self, "rir_save_path") or not self.rir_save_path:
             messagebox.showwarning("Save path", "Select a file path to save the measured RIR first.")
@@ -98,9 +111,9 @@ class RIRTab:
         )
 
         # Connect log callback
-        recorder.log_callback = lambda msg: self.log(msg)
+        recorder.log_callback = lambda msg: self._log(msg)
 
-        self.log("[RIRTab] Starting RIR measurement...")
+        self._log("[RIRTab] Starting RIR measurement...")
 
         # Run in background
         threading.Thread(target=recorder.measure, daemon=True).start()
