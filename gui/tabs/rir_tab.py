@@ -3,8 +3,8 @@ from tkinter import ttk, filedialog, messagebox
 import threading
 import os
 
-from utils.rir_record import RIRRecorder
-from gui.widgets import (
+from utils.rir.rir_record import RIRRecorder
+from gui.base_widgets import (
     make_label,
     make_entry,
     make_button,

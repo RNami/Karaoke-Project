@@ -5,7 +5,7 @@ from threading import Thread
 import numpy as np
 import sounddevice as sd
 
-import utils.rir_postprocessing as rirPP
+import utils.rir.rir_postprocessing as rirPP
 
 class RIRRecorder:
     CHUNK = 1024  # default, will be overwritten by buffer_size

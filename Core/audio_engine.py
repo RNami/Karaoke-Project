@@ -7,10 +7,10 @@ import pyaudio
 from scipy.signal import resample_poly
 
 
-from Filters.filters import FDLConvolver, concert_hall_effect, robot_voice_effect
+from Filters.base_filters import FDLConvolver, concert_hall_effect, robot_voice_effect
 from Filters.ir_utils import load_ir_any, resample_if_needed
-from note_detection.note_detection import NoteDetection
-
+from utils.note_detection.note_detection import NoteDetection
+from Core.streams import AudioStreamManager
 
 FORMAT = pyaudio.paInt16
 BUFFER_SIZE = 128  # fixed internal buffer, GUI can still show value if desired

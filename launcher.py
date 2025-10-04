@@ -1,5 +1,5 @@
-# from Core.main import main
-import audio_app
+# launcher.py
+import gui.main_window as audio_app
 
 if __name__ == "__main__":
     try:

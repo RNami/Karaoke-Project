@@ -3,9 +3,9 @@ from tkinter import ttk
 
 from Core.audio_engine import AudioEngine
 from Core.io_utils import get_wasapi_devices
-from gui.streaming_tab import StreamingTab
-from gui.rir_tab import RIRTab
-from gui.about_tab import AboutTab
+from gui.tabs.streaming_tab import StreamingTab
+from gui.tabs.rir_tab import RIRTab
+from gui.tabs.about_tab import AboutTab
 
 class AudioApp:
     def __init__(self, root: tk.Tk):
