@@ -129,6 +129,24 @@ class StreamingTab:
             state="disabled"
         )
 
+        # ----------------------------
+        # Log box
+        # ----------------------------
+        make_label(
+            self.frame, text="Log:",
+            row=7, column=0, sticky="ne"
+        )
+        self.log_box = tk.Text(
+            self.frame,
+            height=10,
+            width=70,
+            state="disabled",      # not editable
+            wrap="word",
+        )
+        self.log_box.grid(row=7, column=1, columnspan=2, sticky="nsew", padx=5, pady=5)
+
+        self.engine.set_log_callback(self.log)
+
 
     # ----------------------------
     # IR file chooser
@@ -166,6 +184,7 @@ class StreamingTab:
             
             inp, out = self.input_devices[i_idx], self.output_devices[o_idx]
             self.engine.start_stream(inp["index"], out["index"], self.effect_var.get())
+            self.log(f"[StreamingTab] Audio streaming started with effect: {self.effect_var.get()}")
             self.start_btn.config(state="disabled")
             self.stop_btn.config(state="normal")
 
@@ -178,6 +197,8 @@ class StreamingTab:
 
     def stop_audio(self):
         self.engine.stop_stream()
+        self.level.set(0)
+        self.log(f"[StreamingTab] Audio streaming stopped.")
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
 
@@ -192,12 +213,27 @@ class StreamingTab:
     # UI updates
     # ----------------------------
     def update_level_bar(self):
-        self.level.set(self.engine.current_level)
         if self.engine.running:
-
+            self.level.set(self.engine.current_level)
             self.frame.after(50, self.update_level_bar)
+        else:
+            # Stream stopped; reset level
+            self.level.set(0)
 
     def update_pitch_label(self):
-        self.note.set(self.engine.current_note)
         if self.engine.running:
+            self.note.set(self.engine.current_note)
             self.frame.after(50, self.update_pitch_label)
+        else:
+            self.note.set("")
+
+
+    # ----------------------------
+    # Logging
+    # ----------------------------
+    def log(self, message: str):
+        """Append a log message to the log box."""
+        self.log_box.config(state="normal")
+        self.log_box.insert("end", message + "\n")
+        self.log_box.see("end")  # auto-scroll
+        self.log_box.config(state="disabled")

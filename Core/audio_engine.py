@@ -40,38 +40,75 @@ class AudioEngine:
         self.current_level = 0
         self.current_note = ''
 
+    def set_log_callback(self, callback):
+        """Set a logging callback for GUI log output."""
+        self.log_callback = callback
+
+    def _log(self, msg: str):
+        """Internal helper to send log messages."""
+        if hasattr(self, "log_callback") and self.log_callback:
+            self.log_callback(msg)
+        else:
+            print(msg)
+
     # ----------------------------
     # Stream control
     # ----------------------------
     def start_stream(self, input_device_index=None, output_device_index=None, effect_name="None"):
+        """Start real-time audio streaming with given devices and effect."""
         if self.stream:
+            self._log("[AudioEngine] Stream already active — restarting...")
             self.stop_stream()
 
         self.input_device_index = input_device_index
         self.output_device_index = output_device_index
         self.effect_name = effect_name
 
-        self.stream = self.pa.open(
-            format=pyaudio.paInt16,
-            channels=self.in_channels,
-            rate=self.rate,
-            input=True,
-            output=True,
-            frames_per_buffer=self.buffer_size,
-            input_device_index=input_device_index,
-            output_device_index=output_device_index,
-            stream_callback=self._callback
-        )
-        self.stream.start_stream()
-        self.running = True
+        # Log startup info
+        self._log("[AudioEngine] Starting stream...")
+        self._log(f"  Input Device  : {input_device_index}")
+        self._log(f"  Output Device : {output_device_index}")
+        self._log(f"  Sample Rate   : {self.rate} Hz")
+        self._log(f"  Buffer Size   : {self.buffer_size}")
+        self._log(f"  Effect        : {self.effect_name}")
+
+
+        try:
+            self.stream = self.pa.open(
+                format=pyaudio.paInt16,
+                channels=self.in_channels,
+                rate=self.rate,
+                input=True,
+                output=True,
+                frames_per_buffer=self.buffer_size,
+                input_device_index=input_device_index,
+                output_device_index=output_device_index,
+                stream_callback=self._callback
+            )
+            self.stream.start_stream()
+            self.running = True
+            self._log("[AudioEngine] Stream started successfully.")
+        except Exception as e:
+            self._log(f"[AudioEngine] Error starting stream: {e}")
+            raise
 
     def stop_stream(self):
-        if self.stream:
-            self.stream.stop_stream()
-            self.stream.close()
-            self.stream = None
+        """Stop audio stream and release resources."""
+        if not self.stream:
+            self._log("[AudioEngine] No active stream to stop.")
+            return
+        self._log("[AudioEngine] Stopping stream...")
+        try:
+            if self.stream:
+                self.stream.stop_stream()
+                self.stream.close()
+                self.stream = None
+            self._log("[AudioEngine] Stream stopped.")
+        except Exception as e:
+            self._log(f"[AudioEngine] Error stopping stream: {e}")
+        
         self.running = False
-
+        
     def terminate(self):
         self.stop_stream()
         self.pa.terminate()
@@ -143,10 +180,10 @@ class AudioEngine:
         import wave
 
         if self._recording_rir:
-            print("[AudioEngine] RIR recording already in progress.")
+            self._log("[AudioEngine] RIR recording already in progress.")
             return
 
-        print(f"[AudioEngine] Starting RIR recording -> {filename}")
+        self._log(f"[AudioEngine] Starting RIR recording -> {filename}")
         self.rir_buffer = []
         self._recording_rir = True
 
@@ -172,7 +209,7 @@ class AudioEngine:
         if not self._recording_rir:
             return
 
-        print("[AudioEngine] Stopping RIR recording.")
+        self._log("[AudioEngine] Stopping RIR recording.")
         self._recording_rir = False
 
         if hasattr(self, "rir_stream") and self.rir_stream is not None:
