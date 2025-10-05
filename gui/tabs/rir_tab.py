@@ -114,7 +114,8 @@ class RIRTab:
         make_label(
             self.frame,
             text="Record Length (sec):",
-            row=4, column=0, sticky="e"
+            row=4, column=0,
+            sticky="e"
         )
         self.record_length_var = tk.StringVar(value="20")
         make_entry(
@@ -124,38 +125,57 @@ class RIRTab:
             row=4, column=1, sticky="we"
         )
         
-        # ------------------------------------------------------------------
+        # ----------------------------
         # Measure button
-        # ------------------------------------------------------------------
+        # ----------------------------
         make_button(self.frame,
                     "Measure RIR",
                     command=self.start_rir_measurement,
-                    row=4, column=2, sticky="we")
+                    row=4, column=2,
+                    sticky="we"
+        )
         
-        # ------------------------------------------------------------------
+        # ----------------------------
         # Log box (read-only)
-        # ------------------------------------------------------------------
+        # ----------------------------
         make_label(self.frame,
                    "Log:",
-                   row=5, column=0,
                    columnspan=2,
+                   row=5, column=0,
                    sticky="ne")
         self.log_box = make_textbox(self.frame,
                                     height=12, width=70,
-                                    row=5, column=1, columnspan=2, sticky="nsew")
+                                    row=5, column=1,
+                                    columnspan=2,
+                                    sticky="nsew"
+        )
         self.log_box.config(state="disabled")  # make read-only
-    # ----------------------------------------------------------------------
+
+        # ----------------------------
+        # Progress bar
+        # ----------------------------
+        make_label(self.frame,
+                   "Progress:",
+                   row=6, column=0,
+                   sticky="e"
+        )
+        self.progress = ttk.Progressbar(self.frame, orient="horizontal", mode="determinate", length=300)
+        self.progress.grid(row=6, column=1, columnspan=2, sticky="we")
+        self.progress["value"] = 0
+
+
+    # ----------------------------
     # Logging helper
-    # ----------------------------------------------------------------------
+    # ----------------------------
     def _log(self, msg: str):
         self.log_box.config(state="normal")    # temporarily allow edits
         self.log_box.insert(tk.END, msg + "\n")
         self.log_box.see(tk.END)
         self.log_box.config(state="disabled")  # set back to read-only
 
-    # ----------------------------------------------------------------------
+    # ----------------------------
     # File chooser
-    # ----------------------------------------------------------------------
+    # ----------------------------
     def choose_save_file(self):
         path = filedialog.asksaveasfilename(
             title="Save measured RIR as...",
@@ -166,9 +186,19 @@ class RIRTab:
             self.rir_save_path = path
             self.rir_save_label_var.set(os.path.basename(path))
 
-    # ----------------------------------------------------------------------
+    def choose_sweep_file(self):
+        path = filedialog.askopenfilename(
+            title="Select sweep file",
+            filetypes=[("WAV files", "*.wav"), ("All files", "*.*")]
+        )
+        if path:
+            self.sweep_file_path = path
+            self.sweep_file_label_var.set(os.path.basename(path))
+
+
+    # ----------------------------
     # Measurement logic
-    # ----------------------------------------------------------------------
+    # ----------------------------
     def start_rir_measurement(self):
         # --------------------------
         # Parse record length
@@ -204,16 +234,18 @@ class RIRTab:
             in_rate=self.engine.rate,
             in_channels=self.engine.in_channels,
             output_device_index=output_index,
-            # sweep_file='Archive/Sample_Audio/sine-sweep-linear-10sec-48000sr.wav',
             sweep_file=self.sweep_file_path,
             record_file=self.rir_save_path,
             record_length=record_length,
-            current_blocksize=self.engine.buffer_size
+            current_blocksize=self.engine.buffer_size,
+            progress_callback=self._update_progress,
         )
 
         recorder.log_callback = lambda msg: self._log(msg)
 
         self._log("[RIRTab] Starting RIR measurement...")
+        self.progress["value"] = 0
+        self.progress.update()
 
         # --------------------------
         # Run in background thread
@@ -221,11 +253,34 @@ class RIRTab:
         threading.Thread(target=recorder.measure, daemon=True).start()
 
 
-    def choose_sweep_file(self):
-        path = filedialog.askopenfilename(
-            title="Select sweep file",
-            filetypes=[("WAV files", "*.wav"), ("All files", "*.*")]
-        )
-        if path:
-            self.sweep_file_path = path
-            self.sweep_file_label_var.set(os.path.basename(path))
+    # --------------------------
+    # Progress bar update (thread-safe, smoothed)
+    # --------------------------
+    def _update_progress(self, percent: float):
+        """Smoothly update the progress bar from background threads (stable)."""
+        import time
+        def update():
+            if hasattr(self, "_last_update_time") and time.time() - self._last_update_time < 0.05:
+                return
+            self._last_update_time = time.time()
+            target_value = percent * 100.0
+            current = self.progress["value"]
+
+            # Apply light smoothing
+            step = (target_value - current) * 0.2
+
+            # Snap if we're very close
+            if abs(step) < 0.5:
+                self.progress["value"] = target_value
+                self.progress.update_idletasks()
+                return  # Stop updating
+
+            # Incrementally move towards targetW
+            self.progress["value"] = current + step
+            self.progress.update_idletasks()
+
+            # Schedule next smoothing step
+            self.frame.after(40, update)
+
+        # Schedule safely from any thread
+        self.frame.after(0, update)
