@@ -6,6 +6,7 @@ from Core.io_utils import get_wasapi_devices
 from gui.tabs.streaming_tab import StreamingTab
 from gui.tabs.rir_tab import RIRTab
 from gui.tabs.about_tab import AboutTab
+from gui.tabs.convolver_tab import ConvolverTab
 
 class AudioApp:
     def __init__(self, root: tk.Tk):
@@ -24,10 +25,12 @@ class AudioApp:
         notebook.pack(fill='both', expand=True)
 
         self.streaming_tab = StreamingTab(notebook, self.engine, get_wasapi_devices(self.engine.pa))
+        self.convolver_tab = ConvolverTab(notebook, self.engine)
         self.rir_tab = RIRTab(notebook, self.engine, get_wasapi_devices(self.engine.pa))
         self.about_tab = AboutTab(notebook)
 
         notebook.add(self.streaming_tab.frame, text="Streaming")
+        notebook.add(self.convolver_tab.frame, text="Convolver")
         notebook.add(self.rir_tab.frame, text="RIR Measurement")
         notebook.add(self.about_tab.frame, text="About")
 
