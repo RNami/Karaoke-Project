@@ -267,3 +267,13 @@ class FDLConvolver:
         # buffers are (C_out, L) -> transpose to (L, C_out)
         y = (self._y_head + self._y_tail).T
         return y
+
+class BypassFilter:
+    """
+    Simple pass-through filter for bypass mode.
+    """
+    def __init__(self):
+        pass
+
+    def process_block(self, x_block_mono: np.ndarray) -> np.ndarray:
+        return x_block_mono

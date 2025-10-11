@@ -81,11 +81,12 @@ class StreamingTab:
             self.frame, textvariable=self.ir_path_var,
             row=3, column=1, sticky="we"
         )
-        make_button(
+        self.ir_button = make_button(
             self.frame, "Choose IR...",
             command=self.choose_ir,
             row=3, column=2,
         )
+        self.ir_button.config(state="disabled")  # Enabled only if Convolver selected
 
         # ----------------------------
         # Mic level
@@ -154,23 +155,41 @@ class StreamingTab:
     def choose_ir(self):
         path = filedialog.askopenfilename(
             title="Select IR file",
-            filetypes=[
-                ("Impulse Responses", ("*.mat", "*.wav", "*.flac", "*.aiff", "*.aif")),
-                ("All files", "*")
-            ]
+            filetypes=[("Impulse Responses", ("*.mat", "*.wav", "*.flac", "*.aiff", "*.aif")), ("All files", "*")]
         )
         if not path:
             return
-        self.engine.ir_path = path
+        
         self.ir_path_var.set(os.path.basename(path))
+
+        # Load IR in the engine
+        try:
+            self.engine.load_ir(path)
+            self.engine.set_effect("Convolver")
+            self.effect_var.set("Convolver")
+            self.log(f"[StreamingTab] IR loaded and Convolver activated: {os.path.basename(path)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load IR:\n{e}")
+            print(f"DEBUG: Could not load:\n{e}")
 
     # ----------------------------
     # Effect selection handler
     # ----------------------------
     def on_effect_changed(self, event=None):
-        if self.effect_var.get() == "Convolver" and not self.engine.ir_path:
-            if messagebox.askyesno("Convolver selected", "No IR loaded. Do you want to choose one?"):
-                self.choose_ir()
+        new_effect = self.effect_var.get()
+
+        # If Convolver selected but no IR loaded, prompt
+        if new_effect == "Convolver":
+            self.ir_button.config(state="normal")
+            if not self.engine.ir_path:
+                if messagebox.askyesno("Convolver selected", "No IR loaded. Do you want to choose one?"):
+                    self.choose_ir()
+        else:
+            self.ir_button.config(state="disabled")
+            
+        # Apply the effect immediately
+        self.engine.set_effect(new_effect)
+        self.log(f"[StreamingTab] Effect changed -> {new_effect}")
 
     # ----------------------------
     # Stream controls

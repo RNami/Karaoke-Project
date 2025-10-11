@@ -1,7 +1,7 @@
 # Core/audio_engine.py
 import numpy as np
 import pyaudio
-from Filters.base_filters import FDLConvolver
+from Filters.filter_improved import FDLConvolver, robot_voice_effect, concert_hall_effect, BypassFilter
 from Filters.ir_utils import load_ir_any as load_ir_file
 
 class AudioEngine:
@@ -10,6 +10,11 @@ class AudioEngine:
     - Captures input from microphone
     - Applies optional effects/filters
     - Plays output in real time
+
+    Notes:
+      - Input/Output PCM is handled as int16 in pyaudio callback.
+      - Internal per-effect processing is done on normalized float32 in [-1, 1].
+      - Convolver expects input blocks of length L == buffer_size; FDLConvolver is created when an IR is loaded.
     """
 
     def __init__(self, in_channels=1, out_channels=2, rate=48000, buffer_size=1024):
@@ -25,20 +30,29 @@ class AudioEngine:
         self.pa = pyaudio.PyAudio()
         self._running = False
         self.stream = None
+
+        # RIR recording (standalone)
         self.rir_buffer = []
         self._recording_rir = False
 
         # Audio processing
+        self.current_filter = None
+        self.effect_mode = "Bypass"
         self.effect_name = "None"
-        self.filters = []
-        self.ir_path = None
-        self.ir_data = None
+        self.filters = [] # Custom filter objects if any
+        self.ir_path = None 
+        self.ir_data = None # numpy array
+        self.ir_convolver = None # Instance of FDLConvolver when IR loaded
         self.wet = 1.0
         self.dry = 0.0
 
         # GUI / monitoring
         self.current_level = 0
         self.current_note = ''
+
+        # logging callback (set by GUI)
+        self.log_callback = None
+
 
     def set_log_callback(self, callback):
         """Set a logging callback for GUI log output."""
@@ -47,9 +61,86 @@ class AudioEngine:
     def _log(self, msg: str):
         """Internal helper to send log messages."""
         if hasattr(self, "log_callback") and self.log_callback:
-            self.log_callback(msg)
+            try:
+                self.log_callback(msg)
+            except Exception:
+                # avoid raising errors from logger (GUI Thread)
+                print("[AudioEngine] log callback failed.")
+                print(msg)
         else:
             print(msg)
+
+    # ----------------------------
+    # Effect management
+    # ----------------------------
+    def set_effect(self, effect_name: str):
+        self.effect_name = effect_name
+        self._log(f"[AudioEngine] Effect changed -> {effect_name}")
+
+    # ----------------------------
+    # IR / filter / wet-dry management
+    # ----------------------------
+    # def load_ir(self, path: str):
+    #     self.ir_path = path
+    #     self.ir_data = load_ir_file(path)
+    def load_ir(self, path):
+        import scipy.io
+        import numpy as np
+
+        try:
+            if path.endswith(".mat"):
+                mat = scipy.io.loadmat(path)
+
+                # Try to automatically find the IR variable
+                keys = [k for k in mat.keys() if not k.startswith("__")]
+                if not keys:
+                    raise ValueError("No valid variables found in MAT file.")
+
+                ir = mat[keys[0]]
+                ir = np.array(ir, dtype=float)
+
+                # Handle multi-dimensional IRs (squeeze nested arrays)
+                if ir.ndim > 2:
+                    ir = np.squeeze(ir)
+
+                if ir.dtype == object:
+                    # stack all objects (arrays) along last axis
+                    ir = np.stack([np.squeeze(x) for x in ir], axis=-1)
+
+            elif path.endswith(".wav"):
+                from scipy.io import wavfile
+                _, ir = wavfile.read(path)
+                ir = ir.astype(float)
+            elif path.endswith(".npy"):
+                ir = np.load(path)
+            else:
+                raise ValueError("Unsupported IR format")
+
+            # Normalize IR
+            ir = ir / np.max(np.abs(ir))
+
+            # Ensure IR has correct shape (samples × channels)
+            if ir.ndim == 1:
+                ir = ir[:, None]
+
+            self.ir = ir
+            self.ir_path = path
+
+            # Create the convolver for real-time use
+            self.ir_convolver = FDLConvolver(ir, block_size=self.buffer_size)
+            self._log(f"[AudioEngine] IR loaded successfully: {path}")
+            self._log(f"[AudioEngine] IR shape = {ir.shape}, dtype = {ir.dtype}")
+
+        except Exception as e:
+            self._log(f"Could not load IR:\n{e}")
+
+
+    def set_filters(self, filters_list: list):
+        self.filters = filters_list
+
+    def set_wet_dry(self, wet: float, dry: float):
+        self.wet = float(wet)
+        self.dry = float(dry)
 
     # ----------------------------
     # Stream control
@@ -106,69 +197,62 @@ class AudioEngine:
             self._log("[AudioEngine] Stream stopped.")
         except Exception as e:
             self._log(f"[AudioEngine] Error stopping stream: {e}")
-        
+        # reset running and monitoring state
         self.running = False
+        # reset level and note
+        self.current_level = 0.0
+        self.current_note = ''
         
     def terminate(self):
         self.stop_stream()
-        self.pa.terminate()
-
-    # ----------------------------
-    # IR / filter / wet-dry management
-    # ----------------------------
-    def load_ir(self, path: str):
-        self.ir_path = path
-        self.ir_data = load_ir_file(path)
-
-    def set_filters(self, filters_list: list):
-        self.filters = filters_list
-
-    def set_wet_dry(self, wet: float, dry: float):
-        self.wet = wet
-        self.dry = dry
+        try:
+            self.pa.terminate()
+        except Exception:
+            pass
 
     # ----------------------------
     # PyAudio callback
     # ----------------------------
     def _callback(self, in_data, frame_count, time_info, status):
         audio_in = np.frombuffer(in_data, dtype=np.int16).astype(np.float32)
-        self.current_level = np.sqrt(np.mean(audio_in**2))
-        audio_out = self._process(audio_in)
-        audio_out = np.clip(audio_out, -32768, 32767).astype(np.int16)
+        self.current_level = np.sqrt(np.mean((audio_in / 32768.0) ** 2)) * 100
+        audio_out = self._process(audio_in)  # already int16 clipped
         return (audio_out.tobytes(), pyaudio.paContinue)
 
     # ----------------------------
     # Processing
     # ----------------------------
     def _process(self, audio: np.ndarray) -> np.ndarray:
-        processed = np.copy(audio)
+        """
+        Apply the selected effect or convolution using the loaded FDLConvolver.
+        audio: int16 mono block
+        returns: float32 block (same length)
+        """
+        # Convert to float32
+        audio_f = audio.astype(np.float32)
 
-        # Built-in effects
+        # --- Ensure correct shape for multi-channel input ---
+        if audio_f.ndim == 1 and self.in_channels > 1:
+            audio_f = np.tile(audio_f[:, None], (1, self.in_channels))
+
+        # Apply effect
         if self.effect_name == "Robot Voice":
-            processed = self._robot_effect(processed)
+            processed = robot_voice_effect(audio_f, self.rate)
         elif self.effect_name == "Concert Hall":
-            processed = self._reverb_effect(processed)
-        elif self.effect_name == "Convolver" and self.ir_data is not None:
-            processed = self._convolve_ir(processed)
+            processed = concert_hall_effect(audio_f, self.rate)
+        elif self.effect_name == "Convolver":
+            if self.ir_convolver is not None:
+                processed = self.ir_convolver.process_block(audio_f)
+            else:
+                processed = audio_f  # no IR loaded → dry pass
+        else:
+            processed = audio_f
 
-        # Custom filters
-        for f in self.filters:
-            processed = FDLConvolver(processed, f)
+        # Apply wet/dry mix
+        out = self.dry * audio_f + self.wet * processed
 
-        return self.dry * audio + self.wet * processed
-
-    # ----------------------------
-    # Effect implementations
-    # ----------------------------
-    def _robot_effect(self, audio: np.ndarray) -> np.ndarray:
-        return np.sign(audio) * np.sqrt(np.abs(audio))
-
-    def _reverb_effect(self, audio: np.ndarray) -> np.ndarray:
-        decay = np.exp(-np.linspace(0, 1, 256))
-        return np.convolve(audio, decay, mode='same')
-
-    def _convolve_ir(self, audio: np.ndarray) -> np.ndarray:
-        return np.convolve(audio, self.ir_data, mode='same') if self.ir_data is not None else audio
+        # Clip and convert back to int16 for PyAudio
+        return np.clip(out, -32768, 32767).astype(np.int16)
 
     # ----------------------------
     # RIR Recording (standalone)
