@@ -132,7 +132,7 @@ karaoke-reverb/
   * Ensure `running` state is properly set; otherwise UI updates won’t work.
 * **StreamingTab**:
 
-  * Uses `after()` loops for mic level and pitch; avoid blocking operations.
+  * The convolver mode currently only processes in mono mode.
 * **Device indices**:
 
   * PyAudio device indices may differ per system.

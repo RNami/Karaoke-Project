@@ -99,41 +99,60 @@ class AudioEngine:
                 ir = mat[keys[0]]
                 ir = np.array(ir, dtype=float)
 
-                # Handle multi-dimensional IRs (squeeze nested arrays)
+                # If IR is multi-dimensional, reduce it to 2D (samples × channels)
                 if ir.ndim > 2:
                     ir = np.squeeze(ir)
 
                 if ir.dtype == object:
-                    # stack all objects (arrays) along last axis
                     ir = np.stack([np.squeeze(x) for x in ir], axis=-1)
 
-            elif path.endswith(".wav"):
-                from scipy.io import wavfile
-                _, ir = wavfile.read(path)
-                ir = ir.astype(float)
-            elif path.endswith(".npy"):
-                ir = np.load(path)
             else:
-                raise ValueError("Unsupported IR format")
+                # Handle .wav or .npy IRs
+                if path.endswith(".wav"):
+                    from scipy.io import wavfile
+                    _, ir = wavfile.read(path)
+                    ir = ir.astype(float)
+                elif path.endswith(".npy"):
+                    ir = np.load(path)
+                else:
+                    raise ValueError("Unsupported IR format")
 
-            # Normalize IR
-            ir = ir / np.max(np.abs(ir))
+            # Normalize and assign to self.ir as float32 in [-1,1]
+            max_abs = np.max(np.abs(ir)) if ir.size else 1.0
+            if max_abs == 0:
+                raise ValueError("IR is all zeros")
+            ir = ir.astype(np.float32) / float(max_abs)
 
-            # Ensure IR has correct shape (samples × channels)
+            # Ensure 2D shape (M, C_out)
             if ir.ndim == 1:
                 ir = ir[:, None]
 
-            self.ir = ir
-            self.ir_path = path
+            # If IR channels != output channels, expand or trim
+            if ir.shape[1] != self.out_channels:
+                # If IR is mono but output is stereo, duplicate columns
+                if ir.shape[1] == 1 and self.out_channels > 1:
+                    ir = np.tile(ir, (1, self.out_channels))
+                else:
+                    # If more channels than hardware, trim to out_channels
+                    ir = ir[:, :self.out_channels]
 
-            # Create the convolver for real-time use
-            self.ir_convolver = FDLConvolver(ir, block_size=self.buffer_size)
-            self._log(f"[AudioEngine] IR loaded successfully: {path}")
-            self._log(f"[AudioEngine] IR shape = {ir.shape}, dtype = {ir.dtype}")
+            self.ir_data = ir  # floating point IR in [-1,1], shape (M, C_out)
+            self.ir_path = path
+            self._log(f"[AudioEngine] IR loaded: {path} (shape={ir.shape})")
+
+            # Build FDLConvolver using engine buffer_size
+            try:
+                self.ir_convolver = FDLConvolver(self.ir_data, block=self.buffer_size)
+                self._log(f"[AudioEngine] Created FDLConvolver (block={self.buffer_size}).")
+            except Exception as e:
+                self.ir_convolver = None
+                self._log(f"[AudioEngine] Failed to build convolver: {e}")
+                raise
 
         except Exception as e:
             self._log(f"Could not load IR:\n{e}")
-
+            # re-raise if you prefer caller to handle it:
+            # raise
 
     def set_filters(self, filters_list: list):
         self.filters = filters_list
@@ -225,34 +244,76 @@ class AudioEngine:
     def _process(self, audio: np.ndarray) -> np.ndarray:
         """
         Apply the selected effect or convolution using the loaded FDLConvolver.
-        audio: int16 mono block
-        returns: float32 block (same length)
+        audio: int16 block (1D) or int-like array from callback
+        returns: int16 block (same length x channels flattened if needed)
         """
-        # Convert to float32
-        audio_f = audio.astype(np.float32)
 
-        # --- Ensure correct shape for multi-channel input ---
-        if audio_f.ndim == 1 and self.in_channels > 1:
-            audio_f = np.tile(audio_f[:, None], (1, self.in_channels))
+        # Convert to float32 in [-1,1]
+        audio_f = audio.astype(np.float32) / 32768.0
 
+        # Ensure 2D shape (L, channels)
+        if audio_f.ndim == 1:
+            audio_f = audio_f[:, None]  # (L, 1)
+
+        # Mix input to mono if needed
+        mono_in = audio_f if audio_f.shape[1] == 1 else np.mean(audio_f, axis=1, keepdims=True)
+
+        # Initialize output arrays
+        processed_mono = None
+        processed_block = None
+
+        # ------------------------
         # Apply effect
+        # ------------------------
         if self.effect_name == "Robot Voice":
-            processed = robot_voice_effect(audio_f, self.rate)
+            norm = mono_in[:, 0]
+            robotized = np.sign(norm) * np.sqrt(np.abs(norm))
+            processed_mono = robotized[:, None]
         elif self.effect_name == "Concert Hall":
-            processed = concert_hall_effect(audio_f, self.rate)
+            decay = np.exp(-np.linspace(0, 1, 256))
+            processed_mono = np.convolve(mono_in[:, 0], decay, mode="same")[:, None]
         elif self.effect_name == "Convolver":
             if self.ir_convolver is not None:
-                processed = self.ir_convolver.process_block(audio_f)
+                processed_block = self.ir_convolver.process_block(mono_in)
             else:
-                processed = audio_f  # no IR loaded → dry pass
+                processed_mono = mono_in
         else:
-            processed = audio_f
+            # Bypass
+            processed_mono = mono_in
 
-        # Apply wet/dry mix
-        out = self.dry * audio_f + self.wet * processed
+        # ------------------------
+        # Prepare output block
+        # ------------------------
+        if processed_block is not None:
+            out_block = processed_block
+        else:
+            # Expand mono to match output channels only if necessary
+            if processed_mono.shape[1] == self.out_channels:
+                out_block = processed_mono
+            else:
+                out_block = np.tile(processed_mono, (1, self.out_channels))
 
-        # Clip and convert back to int16 for PyAudio
-        return np.clip(out, -32768, 32767).astype(np.int16)
+        # Prepare dry block once
+        if audio_f.shape[1] == self.out_channels:
+            dry_block = audio_f
+        else:
+            dry_block = np.tile(mono_in, (1, self.out_channels))
+
+        # Wet/Dry mix
+        out = (self.dry * dry_block) + (self.wet * out_block)
+
+        # ------------------------
+        # Safe clipping (Fix 2)
+        out = np.clip(out, -1.0, 1.0)
+
+        # Convert to int16
+        out_int16 = (out * 32767.0).astype(np.int16)
+
+        # Interleave channels properly (Fix 1)
+        if out_int16.ndim == 2 and out_int16.shape[1] > 1:
+            return out_int16.flatten('F')
+        else:
+            return out_int16.ravel()
 
     # ----------------------------
     # RIR Recording (standalone)

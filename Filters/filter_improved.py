@@ -239,7 +239,7 @@ class FDLConvolver:
 
         # Vectorized accumulation over partitions:
         # Hspec: (C_out, K, F), Xseq: (K, F) -> Yc: (C_out, F)
-        np.tensordot(self.Hspec, Xseq, axes=([1], [0]), out=self._Yc)
+        self._Yc[:] = np.einsum('ckf,kf->cf', self.Hspec, Xseq)
 
         # IFFT + OLA per channel
         for co in range(self.C_out):
