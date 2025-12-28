@@ -1,0 +1,9 @@
+# Ignore compiled binaries
+bin/*.dll
+bin/*.so
+bin/*dylib
+bin/*.exe
+
+# Ignore Python cache
+__pycache__/
+*.pyc
