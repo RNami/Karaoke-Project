@@ -162,7 +162,7 @@ class AudioEngineWrapper:
         if self._lib:
             self._lib.cleanup()
 
-    def get_performace(self):
+    def get_performance(self):
         """Returns CPU load as a percentage float."""
         if self._lib:
             return self._lib.get_cpu_load()

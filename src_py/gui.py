@@ -105,9 +105,9 @@ class AudioStreamerGUI:
         """Fetches stats from C every 100ms"""
         if self.is_running:
             if hasattr(self.engine, 'get_performance'):
-                load = self.engine.get_performace()
+                load = self.engine.get_performance()
             else:
-                load = self.engine.get_performace()
+                load = self.engine.get_performance()
 
             self.perf_data.append(load)
             self.current_tick += 1

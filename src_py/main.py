@@ -12,6 +12,8 @@ from gui import AudioStreamerGUI
 
 def main():
     root = tk.Tk()
+    icon = tk.PhotoImage(file='.\\assets\\headset.png')
+    root.iconphoto(True, icon)
     app = AudioStreamerGUI(root)
     root.mainloop()
 
